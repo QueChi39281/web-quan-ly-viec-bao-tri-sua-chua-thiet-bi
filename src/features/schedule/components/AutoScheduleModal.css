@@ -1,0 +1,125 @@
+/* FRAME 46: AUTO SCHEDULE MODAL */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.frame-46-card {
+  position: relative; /* Bắt buộc có để định vị nút X */
+  background-color: #ffffff;
+  border-radius: 8px;
+  width: 320px;
+  padding: 20px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+/* NÚT X ĐÓNG MODAL */
+.btn-modal-close-x {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  background: transparent;
+  border: none;
+  font-size: 22px;
+  font-weight: bold;
+  color: #94a3b8;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
+  transition: color 0.15s ease-in-out;
+}
+
+.btn-modal-close-x:hover {
+  color: #ef4444;
+}
+
+.frame-46-title {
+  text-align: center;
+  color: #0d6efd;
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 16px;
+  padding-right: 16px; /* Chừa khoảng trống để tiêu đề không đè lên nút X */
+}
+
+.frame-46-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.form-group label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.frame-46-input {
+  border: 1px solid #3b82f6;
+  border-radius: 4px;
+  padding: 8px;
+  font-size: 13px;
+  outline: none;
+}
+
+.frame-46-input:focus {
+  border-color: #1d4ed8;
+  box-shadow: 0 0 0 2px rgba(29, 78, 216, 0.15);
+}
+
+.frame-46-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+/* NÚT HỦY */
+.btn-cancel,
+.btn-cancel-gray {
+  background-color: #e5e7eb;
+  color: #374151;
+  border: none;
+  padding: 6px 16px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease-in-out;
+}
+
+.btn-cancel:hover,
+.btn-cancel-gray:hover {
+  background-color: #d1d5db;
+}
+
+/* NÚT LƯU */
+.btn-save-blue {
+  background-color: #0d6efd;
+  color: #ffffff;
+  border: none;
+  padding: 6px 20px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.15s ease-in-out;
+}
+
+.btn-save-blue:hover {
+  background-color: #0b5ed7;
+}

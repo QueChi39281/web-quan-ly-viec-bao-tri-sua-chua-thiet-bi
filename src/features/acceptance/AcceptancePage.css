@@ -1,0 +1,269 @@
+/* ==========================================
+   1. KHẮC PHỤC OVERFLOW KHUNG CHỨA (FLEXBOX)
+   ========================================== */
+.page-body-wrapper,
+.main-content-container,
+.acceptance-container {
+  width: 100%;
+  min-width: 0 !important;
+  box-sizing: border-box;
+}
+
+.acceptance-container {
+  padding: 24px;
+  background-color: #ffffff;
+  min-height: 100vh;
+  font-family: Arial, sans-serif;
+}
+
+.acceptance-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1d4ed8;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+/* ==========================================
+   2. KHUNG CHỨA BẢNG & THANH CUỘN NGANG
+   ========================================== */
+.table-responsive,
+.frame-33-table-wrapper {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto !important;
+  overflow-y: hidden;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background-color: #ffffff;
+  box-sizing: border-box;
+}
+
+/* ==========================================
+   3. BẢNG DỮ LIỆU
+   ========================================== */
+.acceptance-table,
+.tech-requests-table {
+  width: 100%;
+  min-width: 1150px; /* Đã hạ từ 1450px xuống 1150px để ôm vừa khít dữ liệu */
+  border-collapse: collapse;
+  table-layout: fixed;
+  background-color: #ffffff;
+}
+
+.acceptance-table th,
+.tech-requests-table th {
+  background-color: #2563eb;
+  color: #ffffff;
+  padding: 10px 6px;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  border: 1px solid #3b82f6;
+  white-space: nowrap;
+  box-sizing: border-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.acceptance-table td,
+.tech-requests-table td {
+  padding: 8px 6px;
+  border: 1px solid #e5e7eb;
+  font-size: 12px;
+  vertical-align: middle;
+  box-sizing: border-box;
+}
+
+/* ==========================================
+   4. CHIA ĐỘ RỘNG VỪA VẶN TỪNG CỘT
+   ========================================== */
+.col-stt { width: 45px; }                  /* STT */
+.col-device-code { width: 95px; }          /* Mã TB */
+.col-device-name { width: 140px; }         /* Tên thiết bị */
+.col-employee-name { width: 125px; }       /* Người yêu cầu */
+.col-acceptance-content { width: 220px; }  /* Nội dung */
+.col-user-confirm { width: 100px; }        /* Xác nhận */
+.col-created-at { width: 110px; }          /* Thời gian */
+.col-cost { width: 95px; }                 /* Chi phí */
+.col-manager { width: 115px; }             /* Quản lý */
+.col-evaluation { width: 160px; }          /* Đánh giá / Lý do */
+
+/* Cột Hành động: Thu gọn vừa vặn nút bấm */
+.col-action,
+.acceptance-table th:last-child,
+.tech-requests-table th:last-child,
+.acceptance-table td:last-child,
+.tech-requests-table td:last-child {
+  width: 145px !important;
+  min-width: 145px !important;
+  max-width: 145px !important;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* ==========================================
+   5. CỤM NÚT HÀNH ĐỘNG
+   ========================================== */
+.action-buttons,
+.action-btn-group {
+  display: flex !important;
+  flex-direction: row !important;
+  justify-content: center !important;
+  align-items: center !important;
+  gap: 4px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.btn-action {
+  padding: 5px 8px;
+  border: none;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffffff;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: opacity 0.2s;
+}
+
+.btn-action:hover {
+  opacity: 0.85;
+}
+
+.btn-approve {
+  background-color: #0d6efd;
+}
+
+.btn-reject {
+  background-color: #dc2626;
+}
+
+/* ==========================================
+   6. UTILITIES, BADGES & CONTENT BOX
+   ========================================== */
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.text-nowrap { white-space: nowrap; }
+.font-semibold { font-weight: 600; }
+.font-bold { font-weight: 700; }
+.text-blue { color: #1d4ed8; }
+.text-success { color: #15803d; }
+.text-danger { color: #b91c1c; }
+.text-muted { color: #9ca3af; }
+
+.sortable-th {
+  cursor: pointer;
+  user-select: none;
+}
+
+.sortable-th:hover {
+  background-color: #1d4ed8;
+}
+
+.th-content {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.sort-arrow-white {
+  color: #ffffff !important;
+  font-weight: bold;
+  font-size: 11px;
+}
+
+.content-box {
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 6px 8px;
+  transition: all 0.2s ease;
+}
+
+.content-box p {
+  margin: 2px 0;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.content-box.collapsed .content-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.content-box.expanded .content-text {
+  display: block;
+}
+
+.btn-toggle-detail {
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 2px 0 0 0;
+  margin-top: 2px;
+  display: inline-block;
+}
+
+.btn-toggle-detail:hover {
+  text-decoration: underline;
+  color: #1d4ed8;
+}
+
+.device-code-badge {
+  background-color: #dbeafe;
+  color: #1e40af;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 11px;
+}
+
+.confirm-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.confirm-badge.confirm-yes {
+  background-color: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.confirm-badge.confirm-no {
+  background-color: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 3px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.status-badge.approved {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.status-badge.rejected {
+  background-color: #fee2e2;
+  color: #991b1b;
+}

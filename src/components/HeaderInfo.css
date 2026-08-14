@@ -1,0 +1,219 @@
+/* src/features/mobile-user/HeaderInfo.css */
+
+/* --- CONTAINER CHÍNH (DÍNH LIỀN MỚI) --- */
+.header-user-info {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 10px 12px;
+  background: linear-gradient(to right, #22d3ee, #3b82f6);
+  color: #ffffff;
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+  box-sizing: border-box;
+  width: 100%;
+  gap: 10px;
+  text-align: left !important; /* Bỏ text-align: center nếu có từ cha */
+}
+
+/* --- 1. AVATAR / ICON ROLE (GIỮ NGUYÊN BẢNG MÀU GỐC) --- */
+.header-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 2px solid #ffffff;
+}
+
+.header-avatar svg {
+  width: 20px;
+  height: 20px;
+}
+
+.header-avatar.role-staff {
+  background-color: #fef3c7;
+  color: #d97706;
+}
+
+.header-avatar.role-manager {
+  background-color: #ffffff;
+  color: #2563eb;
+}
+
+.header-avatar.role-user {
+  background-color: #d1fae5;
+  color: #059669;
+}
+
+/* --- 2. THÔNG TIN NGƯỜI DÙNG (CỘT GIỮA) --- */
+.header-details {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.header-title-group {
+  display: flex;
+  align-items: flex-start; /* Căn lề trên khi tên xuống dòng */
+  gap: 6px;
+  min-width: 0;
+}
+
+/* --- TÊN NHÂN VIÊN: MÀU ĐEN + BỎ SHADOW + CHO PHÉP RỚT DÒNG --- */
+.header-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #000000; /* Màu chữ đen */
+  text-shadow: none; /* Bỏ sạch bóng chữ theo yêu cầu */
+  line-height: 1.25;
+  word-break: break-word; /* Rớt dòng tự do nếu tên quá dài */
+}
+
+.header-badge {
+  background-color: #ffffff;
+  color: #000000;
+  font-size: 8px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.header-email,
+.header-phone {
+  font-size: 11px;
+  font-weight: 500;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.95);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+/* --- 3. NHÓM NÚT THAO TÁC (GIỮ NGUYÊN BẢNG MÀU GỐC) --- */
+.header-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.header-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.header-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* GIỮ NGUYÊN TOÀN BỘ MÀU NÚT GỐC BAN ĐẦU */
+.header-btn-notification {
+  background-color: #17ff5d;
+  color: #ffffff;
+}
+.header-btn-notification:hover {
+  background-color: #9efdba;
+  color: #000000;
+}
+
+.header-btn-edit {
+  background-color: #1271ee;
+  color: #ffffff;
+}
+.header-btn-edit:hover {
+  background-color: #7aaff6;
+  color: #000000;
+}
+
+.header-btn-logout {
+  background-color: #ff0000;
+  color: #ffffff;
+}
+.header-btn-logout:hover {
+  background-color: #ffa3a3;
+  color: #000000;
+}
+
+/* BADGE SỐ THÔNG BÁO CHƯA ĐỌC */
+.notification-badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  background-color: #ef4444;
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 800;
+  padding: 1px 3px;
+  min-width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 1.5px solid #ffffff;
+}
+
+/* --- TRẠNG THÁI LOADING (SKELETON) --- */
+.header-skeleton {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: linear-gradient(to right, #22d3ee, #3b82f6);
+  border-radius: 0; /* Đổi về dính liền */
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.skeleton-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.4);
+  animation: pulse 1.5s infinite ease-in-out;
+}
+
+.skeleton-text-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.skeleton-line {
+  height: 12px;
+  border-radius: 4px;
+  background-color: rgba(255, 255, 255, 0.4);
+  animation: pulse 1.5s infinite ease-in-out;
+}
+
+.skeleton-line.w-long { width: 140px; }
+.skeleton-line.w-medium { width: 100px; }
+.skeleton-line.w-short { width: 60px; }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}

@@ -1,0 +1,308 @@
+.mobile-container {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 12px;
+  background-color: #ffffff;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+.tech-page-title {
+  color: #0056b3;
+  font-size: 15px;
+  font-weight: 800;
+  text-align: center;
+  margin: 14px 0;
+  text-transform: uppercase;
+}
+
+.state-bar-flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.btn-toggle-state {
+  background-color: #ffffff;
+  color: #007bf5;
+  border: 2px solid #007bf5;
+  border-radius: 6px;
+  font-weight: 800;
+  font-size: 12px;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+
+.badge-group {
+  display: flex;
+  gap: 6px;
+  font-size: 10px;
+}
+
+.badge-urgency {
+  background-color: #3b82f6;
+  color: #fff;
+  padding: 3px 6px;
+  border-radius: 4px;
+}
+
+.badge-status {
+  background-color: #2563eb;
+  color: #fff;
+  padding: 3px 6px;
+  border-radius: 4px;
+}
+
+.device-code-row {
+  font-size: 15px;
+  margin-bottom: 10px;
+}
+
+.ai-chat-box {
+  background-color: #dbeafe;
+  border: 1.5px solid #93c5fd;
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.ai-avatar {
+  width: 28px;
+  height: 28px;
+  background-color: #cbd5e1;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ai-message-content {
+  font-size: 11px;
+  color: #1e293b;
+  line-height: 1.3;
+}
+
+.ai-message-content p {
+  margin: 0 0 2px 0;
+}
+
+.device-info-section {
+  font-size: 11px;
+  color: #0f172a;
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+
+.device-info-section p {
+  margin: 3px 0;
+}
+
+.btn-inline-blue {
+  background-color: #2563eb;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ml-2 { margin-left: 8px; }
+.mt-2 { margin-top: 8px; }
+
+.report-btn-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.frame-11-container {
+  margin-top: 10px;
+}
+
+.part-header-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  margin-bottom: 6px;
+}
+
+.badge-part-status {
+  background-color: #2563eb;
+  color: #ffffff;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.parts-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  background-color: #e0f2fe;
+}
+
+.parts-table th {
+  background-color: #2563eb;
+  color: #ffffff;
+  padding: 6px;
+  border: 1px solid #bfdbfe;
+}
+
+.parts-table td {
+  padding: 6px;
+  text-align: center;
+  border: 1px solid #bfdbfe;
+}
+
+.text-left { text-align: left !important; }
+
+.part-actions-row {
+  display: flex;
+  justify-content: space-between;
+}
+
+.bottom-action-buttons {
+  display: flex;
+  justify-content: space-around;
+  gap: 12px;
+  margin-top: 18px;
+  padding-bottom: 20px;
+}
+
+.btn-outline-action {
+  flex: 1;
+  background-color: #ffffff;
+  color: #0284c7;
+  border: 2px solid #0284c7;
+  border-radius: 8px;
+  padding: 8px 4px;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+
+/* KHUNG CHAT AI MỚI */
+.ai-chat-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  margin: 12px 0;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+}
+
+.ai-chat-header {
+  background: linear-gradient(135deg, #0a61df, #2563eb);
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ai-avatar-icon {
+  width: 34px;
+  height: 34px;
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ai-title-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.ai-name {
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.ai-status {
+  color: #bfdbfe;
+  font-size: 10px;
+}
+
+/* NỘI DUNG CHAT */
+.ai-chat-messages {
+  padding: 12px;
+  background-color: #f8fafc;
+  max-height: 180px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chat-bubble {
+  max-width: 85%;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.ai-bubble {
+  align-self: flex-start;
+  background-color: #ffffff;
+  color: #1e293b;
+  border: 1px solid #e2e8f0;
+  border-top-left-radius: 2px;
+}
+
+.user-bubble {
+  align-self: flex-end;
+  background-color: #0a61df;
+  color: #ffffff;
+  border-top-right-radius: 2px;
+}
+
+/* INPUT GỬI TIN NHẮN */
+.ai-chat-input-row {
+  display: flex;
+  padding: 8px;
+  background: #ffffff;
+  border-top: 1px solid #e2e8f0;
+  gap: 6px;
+}
+
+.ai-chat-input {
+  flex: 1;
+  border: 1px solid #cbd5e1;
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 12px;
+  outline: none;
+}
+
+.ai-chat-input:focus {
+  border-color: #0a61df;
+}
+
+.btn-ai-send {
+  background-color: #0a61df;
+  color: #ffffff;
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.btn-ai-send:hover {
+  background-color: #1d4ed8;
+}

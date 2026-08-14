@@ -1,0 +1,111 @@
+
+/* ------------------------------------ */
+/* MODAL STYLES (DUYỆT & TỪ CHỐI) */
+/* ------------------------------------ */
+.acceptance-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.acceptance-modal-card {
+  background-color: #ffffff;
+  border-radius: 8px;
+  width: 400px;
+  padding: 20px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+}
+
+/* Title Duyệt: 15px, in đậm, màu XANH BIỂN, căn giữa */
+.approve-modal-title {
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  color: #0d6efd !important;
+  text-align: center !important;
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+/* Title Từ chối: 15px, in đậm, màu ĐỎ, căn giữa */
+.reject-modal-title {
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  color: #dc2626 !important;
+  text-align: center !important;
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.modal-form label {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  display: block;
+}
+
+.modal-textarea {
+  width: 100%;
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 13px;
+  box-sizing: border-box;
+  outline: none;
+  resize: vertical;
+}
+
+/* Khung viền xanh độ rộng 5 dòng */
+.border-blue {
+  border: 1.5px solid #2563eb;
+}
+
+.border-blue:focus {
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.btn-modal-cancel {
+  background-color: #e5e7eb;
+  color: #374151;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.btn-modal-send {
+  color: #ffffff;
+  font-weight: 700;
+  border: none;
+  padding: 8px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.btn-blue {
+  background-color: #2563eb;
+}
+
+.btn-blue:hover {
+  background-color: #1d4ed8;
+}

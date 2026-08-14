@@ -1,0 +1,129 @@
+/* Overlay nền tối mờ phía sau Popup */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+/* Khung Form chính (Popup) */
+.damage-modal-card {
+  position: relative;
+  background-color: #ffffff;
+  width: 100%;
+  max-width: 480px;
+  padding: 24px 20px 20px 20px;
+  border-radius: 12px;
+  border: 3px solid #2563eb; /* Viền xanh đậm */
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
+  box-sizing: border-box;
+}
+
+/* Nút X đóng Popup ở góc trên bên TÁI */
+.btn-close-modal {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  font-weight: 800;
+  color: #64748b;
+  cursor: pointer;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.btn-close-modal:hover {
+  color: #dc2626;
+  background-color: #fee2e2;
+}
+
+/* Tiêu đề in đậm, căn giữa, chữ xanh cỡ 16px */
+.modal-title {
+  text-align: center;
+  color: #2563eb; /* Màu xanh */
+  font-weight: 800;
+  font-size: 16px;
+  text-transform: uppercase;
+  margin-top: 8px;
+  margin-bottom: 20px;
+  letter-spacing: 0.025em;
+}
+
+/* Form control layout */
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 6px;
+}
+
+/* Input & Textarea với Khung Xanh Đậm & Placeholder Xám */
+.input-blue-border {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #0f172a;
+  border: 3px solid #1d4ed8; /* Khung xanh đậm */
+  border-radius: 8px;
+  background-color: #ffffff;
+  outline: none;
+  box-sizing: border-box;
+  font-family: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.input-blue-border::placeholder {
+  color: #9ca3af; /* Chữ xám gợi ý */
+}
+
+.input-blue-border:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
+}
+
+/* Căn vị trí Nút Lưu */
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 8px;
+}
+
+/* Nút Lưu: In đậm, viền to, chữ & viền màu xanh, nền trắng. Hover: nền xanh chữ trắng */
+.btn-save {
+  background-color: #ffffff;
+  color: #2563eb;
+  border: 3px solid #2563eb; /* Viền to màu xanh */
+  font-size: 14px;
+  font-weight: 800; /* In đậm */
+  padding: 8px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-save:hover {
+  background-color: #2563eb; /* Hover nền xanh */
+  color: #ffffff;            /* Hover chữ trắng */
+}
+
+.btn-save:active {
+  transform: scale(0.96);
+}

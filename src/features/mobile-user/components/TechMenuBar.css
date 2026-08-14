@@ -1,0 +1,89 @@
+/* src/components/TechMenuBar.css */
+
+.tech-menu-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25);
+  position: relative; /* Neo Submenu absolute theo khung này */
+  z-index: 100;
+}
+
+.tech-menu-bar {
+  display: flex;
+  width: 100%;
+  background: linear-gradient(to right, #22d3ee, #3b82f6) !important; 
+  border-top: 3px solid rgba(26, 156, 255, 0.734);
+  border-radius: 0 !important; 
+  margin: 0 !important; 
+  padding: 0;
+  box-sizing: border-box;
+}
+
+.tech-menu-item {
+  flex: 1;
+  padding: 12px 8px;
+  background: transparent;
+  border: none;
+  border-radius: 0 !important;
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffffff;
+  text-align: center;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Hover & Active nút bấm chính */
+.tech-menu-item.active,
+.tech-menu-item:hover {
+  background-color: #0A61DF !important;
+  color: #ffffff !important;
+}
+
+/* --- SUBMENU NEO ABSOLUTE CHÍNH XÁC NỬA BÊN PHẢI (50% -> 100%) --- */
+.tech-submenu-list {
+  position: absolute;
+  top: 100%;          /* Sát ngay đít thanh menu */
+  left: 50%;          /* Bắt đầu chính xác từ giữa màn hình sang phải */
+  width: 50%;         /* Chỉ rộng đúng 50% */
+  
+  display: flex;
+  flex-direction: column;
+  background-color: #0A61DF !important; /* Nền xanh nguyên khối */
+  border-radius: 0 0 6px 6px !important;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3) !important;
+  box-sizing: border-box;
+  overflow: hidden;
+  z-index: 101;
+}
+
+.tech-submenu-item {
+  padding: 12px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffffff !important; /* Chữ màu trắng */
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2); /* Viền mờ phân cách */
+  cursor: pointer;
+  
+  display: flex;
+  align-items: center;
+  justify-content: center; 
+  gap: 8px;
+  
+  background-color: #0A61DF !important;
+  transition: background-color 0.15s ease;
+}
+
+.tech-submenu-item:last-child {
+  border-bottom: none;
+}
+
+.tech-submenu-item:hover {
+  background-color: #92bbf891 !important;
+  color: #ffffff !important;
+}
