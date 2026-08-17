@@ -2,15 +2,16 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import AutoScheduleModal from './components/AutoScheduleModal';
 import MaintenanceRow from './components/MaintenanceRow';
+import FilterBar from './components/FilterBar';
 import ManagerSidebar from '../../components/ManagerSidebar';
 import HeaderInfo from '../../components/HeaderInfo';
 import ExportExcelButton from '../../components/ExportExcelButton';
+import { maintenanceApi, deviceApi, userApi } from '../../services/api';
 import { 
   DEVICE_OPTIONS, 
   STAFF_OPTIONS, 
   SUPPLY_SUGGESTIONS 
 } from '../../constants/maintenance';
-import { getInitialMaintenanceRows } from '../../constants/maintenanceData';
 import './MaintenancePlanPage.css';
 
 const ITEMS_PER_PAGE = 20;
@@ -37,14 +38,30 @@ export default function MaintenancePlanPage() {
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
   const [availableStaffs] = useState(INITIAL_STAFF_LIST);
 
-  const [rows, setRows] = useState(() => {
-    const rawData = getInitialMaintenanceRows(todayStr);
-    return rawData.map(item => ({
-      ...item,
-      deviceCode: Array.isArray(item.deviceCodes) ? item.deviceCodes[0] || '' : (item.deviceCode || ''),
-      assignedStaffs: item.assignedStaffs || (item.staff ? [{ id: 'ST-1', name: item.staff, status: 'Sẵn sàng' }] : [])
-    }));
-  });
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch maintenance plans from API
+  useEffect(() => {
+    const fetchMaintenancePlans = async () => {
+      try {
+        setLoading(true);
+        const response = await maintenanceApi.getRequests({ status: 'PLANNING' });
+        const plans = (response.data || []).map(item => ({
+          ...item,
+          deviceCode: Array.isArray(item.deviceCodes) ? item.deviceCodes[0] || '' : (item.deviceCode || ''),
+          assignedStaffs: item.assignedStaffs || (item.staff ? [{ id: 'ST-1', name: item.staff, status: 'Sẵn sàng' }] : [])
+        }));
+        setRows(plans);
+      } catch (error) {
+        console.error('Failed to fetch maintenance plans:', error);
+        setRows([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchMaintenancePlans();
+  }, [todayStr]);
 
   const [editingRowId, setEditingRowId] = useState(null);
   const [backupRow, setBackupRow] = useState(null);
@@ -57,7 +74,10 @@ export default function MaintenancePlanPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
 
-  // 1. Cấu hình Excel Columns
+  // State managing Old/New Comparison Modal
+  const [compareModalData, setCompareModalData] = useState(null);
+
+  // 1. Excel Columns Configuration
   const excelColumns = useMemo(() => [
     { header: 'Loại thiết bị', key: 'deviceType', align: 'left' },
     { header: 'Mã thiết bị', key: 'deviceCode', align: 'center' },
@@ -95,53 +115,32 @@ export default function MaintenancePlanPage() {
     }
   ], []);
 
-  // 2. Nhận dữ liệu từ location state
+  // 2. Handle Navigation Logic from Request Approval Page
   useEffect(() => {
-    if (!location.state) return;
+    if (!location.state?.fromApproval || !location.state?.requestData) return;
 
-    if (location.state.fromApproval) {
-      const { deviceType, deviceCode, reason } = location.state;
+    const { deviceCode, deviceStatus, content, estimatedCost, employeeName, type } = location.state.requestData;
+    if (!deviceCode) return;
+
+    let matchedDeviceType = '';
+    if (deviceCode.startsWith('TB')) matchedDeviceType = 'Máy nén khí Piston';
+    else if (deviceCode.startsWith('PG')) matchedDeviceType = 'Máy phát điện Cummins';
+
+    const assignedStaffs = employeeName 
+      ? [{ id: `ST-${Date.now()}`, name: employeeName, status: 'Sẵn sàng' }] 
+      : [];
+
+    const isUsing = deviceStatus === 'Đang sử dụng' || deviceStatus === 'Đang hoạt động';
+
+    if (isUsing) {
       const newId = Date.now();
-      const approvedRow = {
-        id: newId,
-        selected: false,
-        deviceType: deviceType || '',
-        deviceCode: deviceCode || '',
-        status: 'Cần sửa chữa',
-        actionType: 'Sửa chữa',
-        content: reason ? `Sửa chữa sự cố: ${reason}` : 'Thực hiện sửa chữa theo yêu cầu đã duyệt',
-        supplies: [{ name: '', quantity: 1, price: 0 }],
-        cost: 0,
-        assignedStaffs: [],
-        startDate: todayStr,
-        endDate: todayStr,
-        autoInterval: null
-      };
-      setRows(prev => [approvedRow, ...prev]);
-      setEditingRowId(newId);
-    }
-
-    if (location.state.requestData) {
-      const { deviceCode, content, estimatedCost, employeeName } = location.state.requestData;
-      const newId = Date.now();
-
-      let matchedDeviceType = '';
-      if (deviceCode) {
-        if (deviceCode.startsWith('TB')) matchedDeviceType = 'Máy nén khí Piston';
-        else if (deviceCode.startsWith('PG')) matchedDeviceType = 'Máy phát điện Cummins';
-      }
-
-      const assignedStaffs = employeeName 
-        ? [{ id: `ST-${Date.now()}`, name: employeeName, status: 'Sẵn sàng' }] 
-        : [];
-
       const newRowFromRequest = {
         id: newId,
         selected: false,
         deviceType: matchedDeviceType,
-        deviceCode: deviceCode || '',
-        status: 'Cần sửa chữa',
-        actionType: 'Sửa chữa',
+        deviceCode: deviceCode,
+        status: type === 'RESCHEDULE' ? 'Đang hoạt động' : 'Cần sửa chữa',
+        actionType: type === 'RESCHEDULE' ? 'Bảo trì' : 'Sửa chữa',
         content: content ? `[Yêu cầu từ ${employeeName || 'KTV'}]: ${content}` : '',
         supplies: [{ name: '', quantity: 1, price: 0 }],
         cost: estimatedCost || 0,
@@ -153,10 +152,27 @@ export default function MaintenancePlanPage() {
 
       setRows(prev => [newRowFromRequest, ...prev]);
       setEditingRowId(newId);
+    } else {
+      setRows(prevRows => {
+        const latestRow = prevRows.find(r => r.deviceCode === deviceCode);
+        setCompareModalData({
+          deviceCode,
+          deviceType: matchedDeviceType,
+          latestRow: latestRow || null,
+          newRequestData: {
+            content: content ? `[Cập nhật từ ${employeeName || 'KTV'}]: ${content}` : '',
+            cost: estimatedCost || 0,
+            assignedStaffs
+          }
+        });
+        return prevRows;
+      });
     }
+
+    window.history.replaceState({}, document.title);
   }, [location.state, todayStr]);
 
-  // Handle click outside action dropdown
+  // Dropdown Click Outside Listener
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (!e.target.closest('.dropdown-action-wrapper')) {
@@ -186,7 +202,73 @@ export default function MaintenancePlanPage() {
     return true;
   }, [editingRowId]);
 
-  // Handlers Lọc & Phân trang
+  // Missing Handler Implementation 1: Auto Schedule Applied
+  const handleApplyAutoSchedule = (autoConfig) => {
+    const selectedRows = rows.filter(r => r.selected);
+    if (selectedRows.length === 0) {
+      alert("Vui lòng chọn ít nhất một thiết bị để áp dụng lịch tự động!");
+      return;
+    }
+
+    setRows(prev => prev.map(row => {
+      if (!row.selected) return row;
+      return {
+        ...row,
+        autoInterval: autoConfig?.interval || '1M',
+        actionType: 'Bảo trì',
+        status: 'Đang hoạt động'
+      };
+    }));
+
+    setIsAutoModalOpen(false);
+    alert(`Đã áp dụng lịch tự động cho ${selectedRows.length} bản ghi!`);
+  };
+
+  // Missing Handler Implementation 2: Old vs New Comparison Confirmation
+  const handleConfirmUpdateOldRow = (shouldUpdateOld) => {
+    if (!compareModalData) return;
+
+    const { deviceCode, deviceType, latestRow, newRequestData } = compareModalData;
+
+    if (shouldUpdateOld && latestRow) {
+      setRows(prev => prev.map(row => {
+        if (row.id === latestRow.id) {
+          return {
+            ...row,
+            content: newRequestData.content || row.content,
+            cost: newRequestData.cost || row.cost,
+            assignedStaffs: newRequestData.assignedStaffs.length > 0 ? newRequestData.assignedStaffs : row.assignedStaffs
+          };
+        }
+        return row;
+      }));
+      setEditingRowId(latestRow.id);
+    } else {
+      const newId = Date.now();
+      const newRow = {
+        id: newId,
+        selected: false,
+        deviceType: deviceType || '',
+        deviceCode: deviceCode || '',
+        status: 'Đang sử dụng',
+        actionType: 'Sửa chữa',
+        content: newRequestData?.content || '',
+        supplies: [{ name: '', quantity: 1, price: 0 }],
+        cost: newRequestData?.cost || 0,
+        assignedStaffs: newRequestData?.assignedStaffs || [],
+        startDate: todayStr,
+        endDate: todayStr,
+        autoInterval: null
+      };
+
+      setRows(prev => [newRow, ...prev]);
+      setEditingRowId(newId);
+    }
+
+    setCompareModalData(null);
+  };
+
+  // Handlers for Filters & Pagination
   const handlePageChange = (newPage) => {
     if (newPage === currentPage) return;
     if (checkUnsavedChanges()) {
@@ -371,7 +453,7 @@ export default function MaintenancePlanPage() {
     }
   };
 
-  // Row Change Handlers (Memoized)
+  // Row Change Handlers
   const handleSelectDeviceType = useCallback((rowId, deviceName) => {
     let defaultCode = '';
     if (deviceName === 'Máy nén khí Piston') defaultCode = 'TB-9981';
@@ -410,15 +492,21 @@ export default function MaintenancePlanPage() {
   const handleSupplyChange = useCallback((rowId, supplyIdx, field, val) => {
     setRows(prev => prev.map(r => {
       if (r.id === rowId) {
-        const updatedSupplies = [...r.supplies];
-        if (field === 'name') {
-          updatedSupplies[supplyIdx].name = val;
-          const found = SUPPLY_SUGGESTIONS.find(s => s.name === val);
-          if (found) updatedSupplies[supplyIdx].price = found.price;
-        } else if (field === 'quantity') {
-          updatedSupplies[supplyIdx].quantity = Number(val) || 0;
-        }
-        const totalCost = updatedSupplies.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+        const updatedSupplies = r.supplies.map((sup, idx) => {
+          if (idx !== supplyIdx) return sup;
+
+          const updatedItem = { ...sup };
+          if (field === 'name') {
+            updatedItem.name = val;
+            const found = SUPPLY_SUGGESTIONS.find(s => s.name === val);
+            if (found) updatedItem.price = found.price;
+          } else if (field === 'quantity') {
+            updatedItem.quantity = Number(val) || 0;
+          }
+          return updatedItem;
+        });
+
+        const totalCost = updatedSupplies.reduce((sum, item) => sum + ((item.quantity || 0) * (item.price || 0)), 0);
         return { ...r, supplies: updatedSupplies, cost: totalCost };
       }
       return r;
@@ -436,33 +524,12 @@ export default function MaintenancePlanPage() {
     setRows(prev => prev.map(r => {
       if (r.id === rowId) {
         const updatedSupplies = r.supplies.filter((_, idx) => idx !== supplyIdx);
-        const totalCost = updatedSupplies.reduce((sum, item) => sum + (item.quantity * item.price), 0);
+        const totalCost = updatedSupplies.reduce((sum, item) => sum + ((item.quantity || 0) * (item.price || 0)), 0);
         return { ...r, supplies: updatedSupplies, cost: totalCost };
       }
       return r;
     }));
   }, []);
-
-  const handleApplyAutoSchedule = (autoData) => {
-    const selectedCount = rows.filter(r => r.selected).length;
-    if (selectedCount === 0) {
-      alert("Vui lòng chọn dòng cần đặt lịch tự động!");
-      return;
-    }
-
-    setRows(prev => prev.map(r => {
-      if (r.selected) {
-        return {
-          ...r,
-          startDate: autoData.startDate,
-          endDate: autoData.endDate || autoData.startDate,
-          autoInterval: autoData.intervalMonths
-        };
-      }
-      return r;
-    }));
-    alert("Đã áp dụng Đặt lịch bảo trì tự động thành công!");
-  };
 
   const handleDateChange = useCallback((rowId, field, val) => {
     setRows(prev => prev.map(r => {
@@ -511,100 +578,13 @@ export default function MaintenancePlanPage() {
         <main className="main-content-container">
           <h2 className="plan-page-title">Kế hoạch bảo trì/sửa chữa thiết bị</h2>
 
-          {/* THANH BỘ LỌC DỮ LIỆU */}
-          <div className="filter-bar-container">
-            <div className="filter-group">
-              <label>Loại thiết bị:</label>
-              <select 
-                className="filter-control"
-                value={filterForm.deviceType}
-                onChange={(e) => handleFilterInputChange('deviceType', e.target.value)}
-              >
-                <option value="">-- Tất cả --</option>
-                {DEVICE_OPTIONS.map((dev, i) => <option key={i} value={dev}>{dev}</option>)}
-              </select>
-            </div>
+          <FilterBar 
+            filterForm={filterForm}
+            onInputChange={handleFilterInputChange}
+            onApply={handleApplyFilter}
+            onReset={handleResetFilters}
+          />
 
-            <div className="filter-group">
-              <label>Mã thiết bị:</label>
-              <input 
-                type="text"
-                className="filter-control"
-                placeholder="Nhập mã (vd: TB-9981)..."
-                value={filterForm.deviceCode}
-                onChange={(e) => handleFilterInputChange('deviceCode', e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleApplyFilter()}
-              />
-            </div>
-
-            <div className="filter-group">
-              <label>Trạng thái TB:</label>
-              <select 
-                className="filter-control"
-                value={filterForm.status}
-                onChange={(e) => handleFilterInputChange('status', e.target.value)}
-              >
-                <option value="">-- Tất cả --</option>
-                <option value="Đang hoạt động">Đang hoạt động</option>
-                <option value="Cần sửa chữa">Cần sửa chữa</option>
-              </select>
-            </div>
-
-            <div className="filter-group">
-              <label>Hành động:</label>
-              <select 
-                className="filter-control"
-                value={filterForm.actionType}
-                onChange={(e) => handleFilterInputChange('actionType', e.target.value)}
-              >
-                <option value="">-- Tất cả --</option>
-                <option value="Bảo trì">Bảo trì</option>
-                <option value="Sửa chữa">Sửa chữa</option>
-              </select>
-            </div>
-
-            <div className="filter-group">
-              <label>Nhân viên:</label>
-              <select 
-                className="filter-control"
-                value={filterForm.staff}
-                onChange={(e) => handleFilterInputChange('staff', e.target.value)}
-              >
-                <option value="">-- Tất cả --</option>
-                {STAFF_OPTIONS.map((st, i) => <option key={i} value={st}>{st}</option>)}
-              </select>
-            </div>
-
-            <div className="filter-group filter-date-range">
-              <label>Thời gian thực hiện:</label>
-              <div className="filter-date-inputs">
-                <input 
-                  type="date"
-                  className="filter-control date-control"
-                  value={filterForm.fromDate}
-                  onChange={(e) => handleFilterInputChange('fromDate', e.target.value)}
-                />
-                <span>-</span>
-                <input 
-                  type="date"
-                  className="filter-control date-control"
-                  value={filterForm.toDate}
-                  onChange={(e) => handleFilterInputChange('toDate', e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="filter-actions-group">
-              <button type="button" className="btn-apply-filter" onClick={handleApplyFilter}>
-                🔍 Lọc
-              </button>
-              <button type="button" className="btn-reset-filter" onClick={handleResetFilters}>
-                Đặt lại
-              </button>
-            </div>
-          </div>
-
-          {/* BAR HÀNH ĐỘNG, XUẤT EXCEL VÀ LƯU */}
           <div className="top-action-bar">
             <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
               <ExportExcelButton 
@@ -666,7 +646,6 @@ export default function MaintenancePlanPage() {
             </button>
           </div>
 
-          {/* BẢNG DỮ LIỆU */}
           <div className="frame-33-table-wrapper">
             <table className="maintenance-table">
               <thead>
@@ -738,7 +717,6 @@ export default function MaintenancePlanPage() {
             </table>
           </div>
 
-          {/* PHÂN TRANG */}
           <div className="pagination-wrapper">
             <div className="record-counter">
               Hiển thị <strong>{totalItems === 0 ? 0 : startIndex + 1} - {endIndex}</strong> / Tổng số <strong>{totalItems}</strong> bản ghi
@@ -794,13 +772,53 @@ export default function MaintenancePlanPage() {
                 »»
               </button>
             </div>
-          </div>
+          </div> 
 
           <AutoScheduleModal 
             isOpen={isAutoModalOpen}
             onClose={() => setIsAutoModalOpen(false)}
             onApply={handleApplyAutoSchedule}
-          />
+          /> 
+
+          {compareModalData && (
+            <div className="modal-overlay">
+              <div className="modal-compare-card">
+                <h3>Xác nhận Cập nhật thông tin Lập kế hoạch</h3>
+                <p>Thiết bị <strong>{compareModalData.deviceCode}</strong> đang ở trạng thái không thuộc nhóm hoạt động bình thường. Bạn có muốn cập nhật bản ghi cũ gần nhất bằng nội dung yêu cầu mới không?</p>
+                
+                <div className="compare-grid">
+                  <div className="compare-box">
+                    <h4>Bản ghi cũ gần nhất</h4>
+                    <p><strong>Nội dung:</strong> {compareModalData.latestRow?.content || '(Chưa có)'}</p>
+                    <p><strong>Kinh phí:</strong> {compareModalData.latestRow?.cost ? compareModalData.latestRow.cost.toLocaleString('vi-VN') + ' VNĐ' : '0 VNĐ'}</p>
+                    <p><strong>Nhân viên:</strong> {compareModalData.latestRow?.assignedStaffs?.map(s => s.name).join(', ') || '-'}</p>
+                  </div> 
+                  <div className="compare-box new-data">
+                    <h4>Nội dung yêu cầu mới</h4>
+                    <p><strong>Nội dung:</strong> {compareModalData.newRequestData?.content || '(Không có)'}</p>
+                    <p><strong>Kinh phí:</strong> {compareModalData.newRequestData?.cost ? compareModalData.newRequestData.cost.toLocaleString('vi-VN') + ' VNĐ' : '0 VNĐ'}</p>
+                    <p><strong>Nhân viên:</strong> {compareModalData.newRequestData?.assignedStaffs?.map(s => s.name).join(', ') || '-'}</p>
+                  </div>
+                </div> 
+                <div className="compare-modal-actions">
+                  <button 
+                    type="button" 
+                    className="btn-confirm-update"
+                    onClick={() => handleConfirmUpdateOldRow(true)}
+                  >
+                    Cập nhật bản ghi cũ
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn-create-new"
+                    onClick={() => handleConfirmUpdateOldRow(false)}
+                  >
+                    Tạo dòng mới tự nhập
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </main>
       </div>
     </div>

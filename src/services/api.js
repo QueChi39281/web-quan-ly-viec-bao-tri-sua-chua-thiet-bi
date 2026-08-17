@@ -72,9 +72,10 @@ API.interceptors.response.use(
 
 // --- 🔑 AUTH SERVICE ---
 export const authApi = {
+  health: () => API.get('/auth/health'),
   login: (credentials) => API.post('/auth/login', credentials), // { username, password }
   getMe: () => API.get('/auth/me'),
-  logout: () => API.post('/auth/logout'), // Sửa: Logout dùng Bearer Token ở Header
+  logout: () => API.post('/auth/logout'),
   refreshToken: (refreshToken) => API.post('/auth/refresh', { refreshToken }),
   activateAccount: (data) => API.post('/auth/activate', data),
   forgotPassword: (data) => API.post('/auth/forgot-password', typeof data === 'string' ? { email: data } : data),
@@ -82,12 +83,27 @@ export const authApi = {
   changePassword: (data) => API.post('/auth/change-password', data),
 };
 
-// --- 👤 USER SERVICE ---
+// --- 👤 USER SERVICE (Chuẩn hóa theo Gateway localhost:3000/users) ---
 export const userApi = {
-  createUser: (userData) => API.post('/users', userData),
+  // GET /users/health
+  getHealth: () => API.get('/users/health'),
+
+  // GET /users/ (Yêu cầu ADMIN hoặc MANAGER)
   getUsers: (params) => API.get('/users', { params }),
+
+  // GET /users/:id
   getUserById: (id) => API.get(`/users/${id}`),
+
+  // POST /users/ (Tạo User mới - Yêu cầu ADMIN)
+  createUser: (userData) => API.post('/users', userData),
+
+  // PUT /users/employees/:id (Cập nhật thông tin employee cá nhân)
+  updateEmployee: (id, employeeData) => API.put(`/users/employees/${id}`, employeeData),
+
+  // PATCH /users/:id (Cập nhật nâng cao)
   updateUser: (id, userData) => API.patch(`/users/${id}`, userData),
+
+  // PATCH /users/:id/status
   changeUserStatus: (id, status) => API.patch(`/users/${id}/status`, { status }),
 };
 
@@ -136,10 +152,13 @@ export const inventoryApi = {
 
 // --- 🔔 NOTIFICATION SERVICE ---
 export const notificationApi = {
-  sendEmail: (data) => API.post('/notifications/email', data),
+  health: () => API.get('/notifications/health'),
   createNotification: (data) => API.post('/notifications', data),
   getNotifications: (params) => API.get('/notifications', { params }),
-  markAsRead: (id) => API.patch(`/notifications/${id}/read`),
+  getEmployeeNotifications: (employeeId) => API.get(`/notifications/employees/${employeeId}`),
+  getNotificationById: (id) => API.get(`/notifications/${id}`),
+  markAsRead: (id, data) => API.patch(`/notifications/${id}`, data),
+  sendEmail: (data) => API.post('/notifications/email', data),
   getUnreadCount: () => API.get('/notifications/unread-count'),
 };
 

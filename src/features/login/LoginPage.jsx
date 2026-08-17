@@ -1,4 +1,3 @@
-// src/features/login/LoginPage.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Lock, User, Eye, EyeOff, Wrench, AlertCircle, Loader2, CheckCircle2 } from 'lucide-react';
@@ -12,6 +11,7 @@ export const getRouteByRole = (role) => {
       return '/admin/tickets';
     case 'MANAGER':
       return '/manager/dashboard';
+    case 'TECH':
     case 'TECHNICIAN':
     case 'MAINTENANCE_STAFF':
       return '/technician-dashboard';
@@ -49,7 +49,6 @@ export default function LoginPage() {
     setSuccessMessage('');
 
     try {
-      // Gọi API quên mật khẩu (truyền username hoặc email)
       const res = await authApi.forgotPassword({ username: formData.username });
       if (res?.success) {
         setSuccessMessage(res?.message || 'Nếu tài khoản tồn tại, liên kết khôi phục đã được gửi.');
@@ -71,7 +70,6 @@ export default function LoginPage() {
     setErrorMessage('');
 
     try {
-      // 🚀 Gọi API Login với đúng contract { username, password }
       const res = await authApi.login({
         username: formData.username.trim(),
         password: formData.password,
@@ -94,6 +92,9 @@ export default function LoginPage() {
         localStorage.setItem('userRole', userData.role);
         localStorage.setItem('userInfo', JSON.stringify(userData));
 
+        // Phát sự kiện toàn cục để HeaderInfo cập nhật ngay lập tức
+        window.dispatchEvent(new Event('userLoginSuccess'));
+
         // Chuyển hướng theo Role
         const targetRoute = getRouteByRole(userData.role);
         navigate(targetRoute, { replace: true });
@@ -102,7 +103,6 @@ export default function LoginPage() {
       }
     } catch (err) {
       console.error("Lỗi đăng nhập:", err);
-      // Bắt lỗi từ Axios / AppError trả về
       const apiErrorMsg = err?.response?.data?.message || err?.message || 'Tên đăng nhập hoặc mật khẩu không chính xác.';
       setErrorMessage(apiErrorMsg);
     } finally {

@@ -6,6 +6,18 @@ import SupplyTableRow from './SupplyTableRow';
 import './SupplyManagementPage.css';
 
 const ITEMS_PER_PAGE = 20;
+const SUPPLY_STORAGE_KEY = 'importedSuppliesData';
+
+const readStoredSupplies = () => {
+  try {
+    const raw = localStorage.getItem(SUPPLY_STORAGE_KEY);
+    if (!raw) return INITIAL_SUPPLIES;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_SUPPLIES;
+  } catch (error) {
+    return INITIAL_SUPPLIES;
+  }
+};
 
 export const INITIAL_SUPPLIES = [
   {
@@ -119,7 +131,11 @@ export const INITIAL_SUPPLIES = [
 ];
 
 export default function SupplyManagementPage() {
-  const [supplies, setSupplies] = useState(INITIAL_SUPPLIES);
+  const [supplies, setSupplies] = useState(() => readStoredSupplies());
+
+  useEffect(() => {
+    localStorage.setItem(SUPPLY_STORAGE_KEY, JSON.stringify(supplies));
+  }, [supplies]);
   const [editingRowId, setEditingRowId] = useState(null);
   const [backupRow, setBackupRow] = useState(null);
 

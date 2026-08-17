@@ -1,35 +1,67 @@
 /* ==========================================================================
-   1. VARIABLES & CORE STYLES
+   1. VARIABLES & SYSTEM DEFAULTS
    ========================================================================== */
 :root {
+  /* Color System */
   --primary-color: #0d6efd;
   --primary-hover: #0b5ed7;
   --primary-dark: #1d4ed8;
   --primary-header: #1e40af;
+  
   --success-color: #16a34a;
   --success-hover: #15803d;
+  --success-bg: #d1fae5;
+  --success-text: #065f46;
+  
   --danger-color: #dc2626;
   --danger-hover: #b91c1c;
+  --danger-bg: #fee2e2;
+  --danger-text: #991b1b;
+
+  --warning-bg: #fef3c7;
+  --warning-text: #92400e;
+
+  /* Neutrals & Surfaces */
+  --surface-main: #ffffff;
   --gray-bg: #f8fafc;
+  --gray-subtle: #f1f5f9;
   --gray-border: #e2e8f0;
   --gray-input-border: #cbd5e1;
+  
   --text-main: #1f2937;
   --text-muted: #475569;
+  --text-placeholder: #94a3b8;
+
+  /* Layout & Geometry */
   --radius-sm: 4px;
   --radius-md: 6px;
-  --transition-fast: all 0.15s ease;
+  --radius-lg: 8px;
+  --radius-pill: 9999px;
+
+  --control-height: 38px;
+  --control-height-sm: 30px;
+
+  /* Transitions & Shadows */
+  --transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-smooth: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-focus: 0 0 0 3px rgba(13, 110, 253, 0.25);
 }
 
-/* CONTAINER CHÍNH */
+/* Base Layout Container */
 .page-root-layout {
   display: flex;
   flex-direction: column;
   height: 100vh;
   width: 100vw;
   overflow: hidden;
-  background-color: #ffffff;
-  font-family: Arial, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--surface-main);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
   color: var(--text-main);
+  line-height: 1.5;
 }
 
 .page-header-wrapper {
@@ -56,44 +88,76 @@
 .plan-page-title {
   text-align: center;
   color: var(--primary-color);
-  font-size: 22px;
+  font-size: 1.375rem;
   font-weight: 700;
-  margin-top: 0;
-  margin-bottom: 16px;
+  margin: 0 0 16px 0;
 }
 
-/* CUSTOM SCROLLBAR DÙNG CHUNG */
+/* Scrollbar System */
+.frame-33-table-wrapper,
+.staff-tags-container,
+.supplies-cell,
+.table-textarea,
+.dropdown-list,
+.assigned-tags-wrapper,
+.read-only-text,
+.supplies-read-only {
+  scrollbar-width: thin;
+  scrollbar-color: var(--gray-input-border) transparent;
+}
+
 .frame-33-table-wrapper::-webkit-scrollbar,
 .staff-tags-container::-webkit-scrollbar,
 .supplies-cell::-webkit-scrollbar,
-.table-textarea::-webkit-scrollbar {
+.table-textarea::-webkit-scrollbar,
+.dropdown-list::-webkit-scrollbar,
+.assigned-tags-wrapper::-webkit-scrollbar,
+.read-only-text::-webkit-scrollbar,
+.supplies-read-only::-webkit-scrollbar {
   width: 6px;
   height: 6px;
+}
+
+.frame-33-table-wrapper::-webkit-scrollbar-track,
+.staff-tags-container::-webkit-scrollbar-track,
+.supplies-cell::-webkit-scrollbar-track,
+.table-textarea::-webkit-scrollbar-track,
+.dropdown-list::-webkit-scrollbar-track,
+.assigned-tags-wrapper::-webkit-scrollbar-track,
+.read-only-text::-webkit-scrollbar-track,
+.supplies-read-only::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .frame-33-table-wrapper::-webkit-scrollbar-thumb,
 .staff-tags-container::-webkit-scrollbar-thumb,
 .supplies-cell::-webkit-scrollbar-thumb,
-.table-textarea::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 4px;
+.table-textarea::-webkit-scrollbar-thumb,
+.dropdown-list::-webkit-scrollbar-thumb,
+.assigned-tags-wrapper::-webkit-scrollbar-thumb,
+.read-only-text::-webkit-scrollbar-thumb,
+.supplies-read-only::-webkit-scrollbar-thumb {
+  background: var(--gray-input-border);
+  border-radius: var(--radius-sm);
 }
 
 .frame-33-table-wrapper::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: var(--text-placeholder);
 }
 
 /* ==========================================================================
-   2. THANH LỌC
+   2. FILTER BAR
    ========================================================================== */
-
-
+/* ==========================================================================
+   2. FILTER BAR (Cấu hình lại Flex & Width dứt điểm lỗi đè ô)
+   ========================================================================== */
 .filter-bar-container {
   display: flex !important;
-  flex-wrap: wrap !important; /* Thiếu chỗ là tự nhảy xuống hàng */
+  flex-wrap: wrap !important;
   align-items: flex-end !important;
-  gap: 12px 16px !important; /* Khoảng cách đều 16px ngang, 12px dọc */
+  gap: 12px 16px !important;
   width: 100% !important;
+  max-width: 100% !important;
   box-sizing: border-box !important;
   background-color: #ffffff;
   border: 1px solid var(--gray-border, #e2e8f0);
@@ -102,12 +166,16 @@
   margin-bottom: 16px;
 }
 
-/* Các ô dropdown / input thường: kích thước cố định vừa đẹp */
 .filter-group {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  flex: 0 0 160px !important; /* Cố định 160px để các ô đều tăm tắp, không bị méo */
+  /* Thay 0 1 160px thành 1 1 180px để ô tự giãn linh hoạt và có độ rộng tối thiểu an toàn */
+  flex: 1 1 180px !important; 
+  min-width: 160px !important;
+  max-width: 100% !important;
+  position: relative !important; /* Tạo khung tọa độ chuẩn cho Autocomplete Dropdown */
+  box-sizing: border-box !important;
 }
 
 .filter-group label {
@@ -117,21 +185,32 @@
   white-space: nowrap;
 }
 
-.filter-control {
+/* KHẮC PHỤC TRIỆT ĐỂ: Ép tất cả các lớp wrapper và input của AutocompleteInput
+   phải tuyệt đối tuân thủ chiều rộng của .filter-group */
+.filter-group .filter-control,
+.filter-group input,
+.filter-group select,
+.filter-group div[class*="autocomplete"],
+.filter-group div[class*="container"] {
   width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.filter-control {
   height: 38px !important;
   padding: 0 10px;
   border: 1px solid var(--gray-input-border, #cbd5e1);
   border-radius: var(--radius-sm, 6px);
   font-size: 13px;
-  box-sizing: border-box;
   background-color: #fff;
   outline: none;
 }
 
-/* Cụm Ngày tháng: Kích thước cố định đủ chứa 2 ô date */
+/* Xử lý khoảng Thời gian thực hiện */
 .filter-group.filter-date-range {
-  flex: 0 0 280px !important; /* Cố định 280px */
+  flex: 1.5 1 260px !important;
+  min-width: 240px !important;
 }
 
 .filter-date-inputs {
@@ -146,39 +225,16 @@
   min-width: 0 !important;
 }
 
-/* Cụm Nút bấm: Giữ nguyên size, không co dẹp, thiếu chỗ sẽ tự nhảy dòng */
-.filter-actions-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 38px;
-  flex: 0 0 auto !important; /* Giữ nguyên độ rộng tự nhiên của nút */
-}
-
-.btn-apply-filter,
-.btn-reset-filter {
-  height: 38px !important;
-  padding: 0 16px !important;
-  white-space: nowrap !important;
-  border-radius: var(--radius-sm, 6px) !important;
-  font-size: 13px !important;
-  font-weight: 600 !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  cursor: pointer !important;
-  border: none !important;
+/* Xử lý danh sách gợi ý xổ xuống của AutocompleteInput không làm vỡ giao diện */
+.filter-group ul,
+.filter-group div[class*="dropdown"],
+.filter-group div[class*="suggestions"] {
+  position: absolute !important;
+  top: 100% !important;
+  left: 0 !important;
+  width: 100% !important;
+  z-index: 9999 !important;
   box-sizing: border-box !important;
-}
-
-.btn-apply-filter {
-  background-color: #0d6efd !important;
-  color: #ffffff !important;
-}
-
-.btn-reset-filter {
-  background-color: #e2e8f0 !important;
-  color: #475569 !important;
 }
 
 /* ==========================================================================
@@ -200,33 +256,34 @@
   padding: 8px 18px;
   border-radius: var(--radius-sm);
   font-weight: 700;
-  font-size: 13px;
+  font-size: 0.8125rem;
   cursor: pointer;
   transition: var(--transition-fast);
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  min-height: 36px;
 }
 
 .btn-action-trigger {
-  background-color: #f1f5f9;
+  background-color: var(--gray-subtle);
   color: var(--text-main);
   border: 1px solid var(--gray-input-border);
 }
 
 .btn-action-trigger:hover {
-  background-color: #e2e8f0;
+  background-color: var(--gray-border);
 }
 
 .btn-save-main {
-  background-color: #94a3b8;
-  color: #ffffff;
+  background-color: var(--text-placeholder);
+  color: var(--surface-main);
   cursor: not-allowed;
 }
 
 .btn-save-main.active-save {
   background-color: var(--success-color);
-  color: #ffffff;
+  color: var(--surface-main);
   cursor: pointer;
   box-shadow: 0 2px 4px rgba(22, 163, 74, 0.2);
 }
@@ -243,9 +300,9 @@
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
-  background-color: #ffffff;
+  background-color: var(--surface-main);
   border: 1px solid var(--gray-border);
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-lg);
   border-radius: var(--radius-md);
   z-index: 1000;
   width: 230px;
@@ -260,7 +317,7 @@
 
 .menu-option {
   padding: 10px 14px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: var(--text-main);
   cursor: pointer;
@@ -271,7 +328,7 @@
 }
 
 .menu-option:hover {
-  background-color: #f1f5f9;
+  background-color: var(--gray-subtle);
 }
 
 .menu-option.text-danger {
@@ -279,20 +336,21 @@
 }
 
 .menu-option.text-danger:hover {
-  background-color: #fee2e2;
+  background-color: var(--danger-bg);
 }
 
 /* ==========================================================================
-   4. BẢNG DỮ LIỆU & STICKY HEADER
+   4. DATA TABLE & STICKY HEADERS
    ========================================================================== */
 .frame-33-table-wrapper {
   border: 1px solid var(--gray-border);
-  background-color: #ffffff;
+  background-color: var(--surface-main);
   overflow: auto;
   max-height: calc(100vh - 320px);
   border-radius: var(--radius-md);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-sm);
   position: relative;
+  isolation: isolate;
   z-index: 1;
 }
 
@@ -301,21 +359,33 @@
   min-width: 1650px;
   border-collapse: separate;
   border-spacing: 0;
-  background-color: #ffffff;
+  background-color: var(--surface-main);
   table-layout: fixed;
+}
+
+/* Thiết lập Stacking Context cho từng hàng để chống đè Popup */
+.maintenance-table tbody tr {
+  position: relative;
+  z-index: 1;
+}
+
+/* Đẩy hàng đang hover hoặc tương tác nổi hẳn lên trên hàng bên dưới */
+.maintenance-table tbody tr:hover,
+.maintenance-table tbody tr:focus-within {
+  z-index: 100 !important;
 }
 
 .maintenance-table th {
   position: sticky;
   top: 0;
   z-index: 20;
-  background-color: var(--primary-dark) !important;
+  background-color: var(--primary-dark, #1d4ed8) !important;
   color: #ffffff !important;
   padding: 10px 8px;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
   text-align: center;
-  border-bottom: 2px solid var(--primary-header);
+  border-bottom: 2px solid var(--primary-header, #1e40af);
   border-right: 1px solid #2563eb;
   white-space: normal;
   word-wrap: break-word;
@@ -346,8 +416,7 @@
 }
 
 .sort-arrow {
-  font-family: Arial, Helvetica, sans-serif;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 900;
   line-height: 1;
   color: #facc15;
@@ -363,8 +432,8 @@
   border-bottom: 1px solid var(--gray-border);
   border-right: 1px solid var(--gray-border);
   vertical-align: middle;
-  font-size: 12px;
-  background-color: #ffffff;
+  font-size: 0.75rem;
+  background-color: var(--surface-main);
   white-space: normal;
   word-break: break-word;
   overflow-wrap: break-word;
@@ -375,7 +444,6 @@
   text-align: center;
 }
 
-/* Tắt hiệu ứng ellipsis cho cột Checkbox */
 .maintenance-table th:first-child,
 .maintenance-table td:first-child {
   text-overflow: clip;
@@ -388,6 +456,10 @@
   background-color: #eff6ff !important;
 }
 
+.row-editing td {
+  background-color: #fffbeb !important;
+}
+
 .empty-table-msg {
   text-align: center;
   padding: 40px !important;
@@ -396,7 +468,7 @@
 }
 
 /* ==========================================================================
-   5. BẢNG INPUTS & BADGES
+   5. TABLE CONTROLS, INPUTS & BADGES
    ========================================================================== */
 .table-input,
 .table-select,
@@ -405,11 +477,12 @@
   padding: 6px;
   border: 1px solid var(--gray-input-border);
   border-radius: var(--radius-sm);
-  font-size: 12px;
+  font-size: 0.75rem;
   box-sizing: border-box;
   outline: none;
   transition: var(--transition-fast);
-  background-color: #ffffff;
+  background-color: var(--surface-main);
+  color: var(--text-main);
 }
 
 .table-textarea {
@@ -440,23 +513,40 @@
   display: inline-block;
   padding: 4px 10px;
   border-radius: 12px;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 700;
   white-space: nowrap;
   text-align: center;
 }
 
 .status-success {
-  background-color: #d1fae5;
-  color: #065f46;
+  background-color: var(--success-bg);
+  color: var(--success-text);
 }
 
 .status-danger {
-  background-color: #fee2e2;
-  color: #991b1b;
+  background-color: var(--danger-bg);
+  color: var(--danger-text);
 }
 
-/* STAFF TAGS */
+.badge-device-single {
+  display: inline-block;
+  background-color: #eff6ff;
+  color: var(--primary-dark);
+  border: 1px solid #bfdbfe;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.read-only-text {
+  max-height: 75px;
+  overflow-y: auto;
+  line-height: 1.4;
+  color: var(--text-main);
+  white-space: pre-line;
+}
+
 .staff-tags-container {
   display: flex;
   flex-wrap: wrap;
@@ -475,20 +565,21 @@
   color: #0369a1;
   padding: 2px 8px;
   border-radius: 12px;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 600;
 }
 
 .staff-remove-btn {
-  background: none;
+  background: transparent;
   border: none;
   color: #ef4444;
-  font-size: 13px;
+  font-size: 0.8125rem;
   line-height: 1;
   cursor: pointer;
   padding: 0 2px;
   display: flex;
   align-items: center;
+  transition: var(--transition-fast);
 }
 
 .staff-remove-btn:hover {
@@ -496,18 +587,26 @@
 }
 
 .no-staff-placeholder {
-  color: #94a3b8;
+  color: var(--text-placeholder);
   font-style: italic;
-  font-size: 11px;
+  font-size: 0.6875rem;
 }
 
-/* VẬT TƯ CONTAINER */
 .supplies-cell {
   display: flex;
   flex-direction: column;
   gap: 6px;
   max-height: 90px;
   overflow-y: auto;
+}
+
+.supplies-read-only {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 80px;
+  overflow-y: auto;
+  font-size: 0.6875rem;
 }
 
 .supply-item-row {
@@ -522,16 +621,16 @@
 }
 
 .qty-input {
-  width: 52px !important;
+  width: 52px;
   text-align: center;
   flex-shrink: 0;
 }
 
 .btn-remove-supply {
-  background: none;
+  background: transparent;
   border: none;
   color: #ef4444;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: bold;
   cursor: pointer;
   padding: 2px 4px;
@@ -544,16 +643,16 @@
 }
 
 .btn-remove-supply:hover {
-  background-color: #fee2e2;
+  background-color: var(--danger-bg);
 }
 
 .btn-add-supply {
-  background: none;
+  background: transparent;
   border: none;
   color: var(--primary-dark);
   font-weight: bold;
   cursor: pointer;
-  font-size: 11px;
+  font-size: 0.6875rem;
   text-align: left;
   padding: 0;
   margin-top: 2px;
@@ -563,12 +662,22 @@
   text-decoration: underline;
 }
 
-/* THỜI GIAN */
 .date-range-cell {
   display: flex;
   flex-direction: column;
   gap: 6px;
   width: 100%;
+  box-sizing: border-box;
+}
+
+.read-only-date {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.6875rem;
+  color: var(--text-main);
+  white-space: normal !important;
+  word-break: break-word;
 }
 
 .auto-interval-badge {
@@ -576,154 +685,54 @@
   border: 1px solid #bfdbfe;
   color: var(--primary-dark);
   font-weight: bold;
-  font-size: 11px;
+  font-size: 0.6875rem;
   padding: 3px 6px;
   border-radius: var(--radius-sm);
   text-align: center;
   margin-bottom: 2px;
-  white-space: nowrap;
+  white-space: normal !important;
+  word-break: break-word;
 }
 
 .date-group {
   display: flex;
   align-items: center;
-  gap: 6px;
-  white-space: nowrap;
+  gap: 4px;
+  flex-wrap: wrap;
+  width: 100%;
+  white-space: normal !important;
 }
 
 .date-group label {
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 700;
   color: var(--text-muted);
-  min-width: 28px;
+  min-width: 24px;
+  flex-shrink: 0;
 }
 
 .table-input-date {
-  padding: 4px 6px;
+  padding: 4px;
   border: 1px solid var(--gray-input-border);
   border-radius: var(--radius-sm);
-  font-size: 11px;
+  font-size: 0.6875rem;
   width: 100%;
+  min-width: 0 !important;
   box-sizing: border-box;
   flex: 1;
-}
-
-/* ==========================================================================
-   6. PHÂN TRANG (PAGINATION)
-   ========================================================================== */
-.pagination-wrapper {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 16px;
-  padding: 8px 4px;
-}
-
-.record-counter {
-  font-size: 13px;
-  color: #374151;
-}
-
-.modern-pagination {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.page-nav-btn,
-.page-num-btn {
-  background-color: #ffffff;
-  border: 1px solid #d1d5db;
-  color: #374151;
-  border-radius: var(--radius-sm);
-  font-size: 12px;
-  font-weight: bold;
-  cursor: pointer;
-  transition: var(--transition-fast);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.page-nav-btn {
-  padding: 0 10px;
-  height: 30px;
-}
-
-.page-num-btn {
-  min-width: 30px;
-  height: 30px;
-  padding: 0 6px;
-}
-
-.page-nav-btn:hover:not(:disabled),
-.page-num-btn:hover {
-  border-color: var(--primary-color);
-  color: var(--primary-color);
-  background-color: #f8fafc;
-}
-
-.page-num-btn.active {
-  background-color: var(--primary-color);
-  color: #ffffff;
-  border-color: var(--primary-color);
-}
-
-.page-nav-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-  background-color: #f1f5f9;
-}
-
-/* ==========================================================================
-   7. BỔ SUNG CHO MAINTENANCE ROW (STAFF PICKER, BADGES & READONLY CELL)
-   ========================================================================== */
-
-/* Trạng thái dòng khi đang chỉnh sửa */
-.row-editing td {
-  background-color: #fffbeb !important; /* Đổi nền vàng nhẹ khi sửa */
-}
-
-/* Badge hiển thị Mã thiết bị đơn */
-.badge-device-single {
-  display: inline-block;
-  background-color: #eff6ff;
-  color: #1d4ed8;
-  border: 1px solid #bfdbfe;
-  font-weight: 700;
-  padding: 3px 8px;
-  border-radius: var(--radius-sm);
-  border: 1px solid #cbd5e1;
-}
-
-/* Cột Văn bản chỉ đọc (Nội dung) */
-.read-only-text {
-  max-height: 75px;
-  overflow-y: auto;
-  line-height: 1.4;
   color: var(--text-main);
-  white-space: pre-line;
-}
-
-/* Cột Vật tư - Chế độ chỉ đọc */
-.supplies-read-only {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  max-height: 80px;
-  overflow-y: auto;
-  font-size: 11px;
 }
 
 /* ==========================================================================
-   8. BỘ CHỌN NHÂN VIÊN THỰC HIỆN (MULTI-SELECT STAFF PICKER)
+   6. MULTI-SELECT STAFF PICKER
    ========================================================================== */
 .staff-assignment-container {
-  position: relative;
-  display: flex;
-  flex-direction: column;
+  position: relative !important;
+  display: grid;
+  grid-template-columns: 1fr;
   gap: 6px;
   width: 100%;
+  z-index: 2;
 }
 
 .assigned-tags-wrapper {
@@ -741,49 +750,47 @@
   gap: 3px;
   padding: 2px 6px;
   border-radius: 10px;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 600;
   border: 1px solid transparent;
   white-space: nowrap;
 }
 
-/* Phân biệt màu tag theo trạng thái nhân viên */
 .staff-tag.status-sẵn-sàng {
-  background-color: #d1fae5;
-  color: #065f46;
+  background-color: var(--success-bg);
+  color: var(--success-text);
   border-color: #a7f3d0;
 }
 
 .staff-tag.status-đang-bận {
-  background-color: #fef3c7;
-  color: #92400e;
+  background-color: var(--warning-bg);
+  color: var(--warning-text);
   border-color: #fde68a;
 }
 
 .staff-tag.status-nghỉ-phép {
-  background-color: #fee2e2;
-  color: #991b1b;
+  background-color: var(--danger-bg);
+  color: var(--danger-text);
   border-color: #fca5a5;
 }
 
 .staff-tag small {
-  font-size: 10px;
+  font-size: 0.625rem;
   opacity: 0.85;
 }
 
-/* Nút kích hoạt Dropdown chọn NV */
 .staff-picker-wrapper {
-  position: relative;
+  position: relative !important;
   width: 100%;
 }
 
 .btn-toggle-staff-select {
   width: 100%;
   padding: 5px 8px;
-  background-color: #ffffff;
+  background-color: var(--surface-main);
   border: 1px solid var(--gray-input-border);
   border-radius: var(--radius-sm);
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 700;
   color: var(--primary-dark);
   cursor: pointer;
@@ -792,29 +799,29 @@
 }
 
 .btn-toggle-staff-select:hover {
-  background-color: #f8fafc;
+  background-color: var(--gray-bg);
   border-color: var(--primary-dark);
 }
 
-/* Dropdown Menu Danh sách Nhân viên */
+/* Đảm bảo Popup chọn nhân viên nổi hẳn lên trên cùng */
 .staff-selector-dropdown {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
+  position: absolute !important;
+  top: calc(100% + 4px) !important;
+  left: 0 !important;
   width: 210px;
-  background-color: #ffffff;
+  background-color: var(--surface-main) !important;
   border: 1px solid var(--gray-border);
   border-radius: var(--radius-md);
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  z-index: 1000;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+  z-index: 9999 !important;
   overflow: hidden;
 }
 
 .dropdown-header {
   padding: 6px 10px;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 700;
-  background-color: #f1f5f9;
+  background-color: var(--gray-subtle);
   color: var(--text-muted);
   border-bottom: 1px solid var(--gray-border);
 }
@@ -831,12 +838,12 @@
   gap: 6px;
   padding: 6px 10px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 0.75rem;
   transition: var(--transition-fast);
 }
 
 .staff-checkbox-item:hover {
-  background-color: #f8fafc;
+  background-color: var(--gray-bg);
 }
 
 .staff-checkbox-item input[type="checkbox"] {
@@ -850,28 +857,85 @@
 }
 
 .status-pill {
-  font-size: 10px;
+  font-size: 0.625rem;
   padding: 1px 6px;
   border-radius: 8px;
   font-weight: 700;
 }
 
 .status-pill.ready {
-  background-color: #d1fae5;
-  color: #065f46;
+  background-color: var(--success-bg);
+  color: var(--success-text);
 }
 
 .status-pill.busy {
-  background-color: #fee2e2;
-  color: #991b1b;
+  background-color: var(--danger-bg);
+  color: var(--danger-text);
 }
 
-/* Cột Thời gian - Chế độ chỉ đọc */
-.read-only-date {
+/* ==========================================================================
+   7. PAGINATION CONTROL
+   ========================================================================== */
+.pagination-wrapper {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  font-size: 11px;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16px;
+  padding: 8px 4px;
+}
+
+.record-counter {
+  font-size: 0.8125rem;
   color: var(--text-main);
-  white-space: nowrap;
+}
+
+.modern-pagination {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.page-nav-btn,
+.page-num-btn {
+  background-color: var(--surface-main);
+  border: 1px solid var(--gray-input-border);
+  color: var(--text-main);
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.page-nav-btn {
+  padding: 0 10px;
+  height: var(--control-height-sm);
+}
+
+.page-num-btn {
+  min-width: 30px;
+  height: var(--control-height-sm);
+  padding: 0 6px;
+}
+
+.page-nav-btn:hover:not(:disabled),
+.page-num-btn:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  background-color: var(--gray-bg);
+}
+
+.page-num-btn.active {
+  background-color: var(--primary-color);
+  color: var(--surface-main);
+  border-color: var(--primary-color);
+}
+
+.page-nav-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background-color: var(--gray-subtle);
 }

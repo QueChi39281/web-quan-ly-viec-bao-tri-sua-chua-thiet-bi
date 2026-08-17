@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import HeaderInfo from '../../components/HeaderInfo';
 import ManagerSidebar from '../../components/ManagerSidebar';
 import RejectModal from './components/RejectModal';
 import Pagination from './components/Pagination';
 import ExportExcelButton from '../../components/ExportExcelButton';
-import { USER_REQUEST_TYPES, MOCK_USER_REQUESTS } from '../../constants/userRequests';
+import { maintenanceApi } from '../../services/api';
+import { USER_REQUEST_TYPES } from '../../constants/userRequests';
 import './UserRequestsPage.css';
 
 const PAGE_SIZE = 30;
@@ -28,9 +30,20 @@ export default function UserRequestsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [sortConfig, setSortConfig] = useState({ key: 'createdAt', direction: 'desc' });
 
-  // Load dữ liệu từ mock
+  const navigate = useNavigate();
+
+  // Load dữ liệu từ API
   useEffect(() => {
-    setRequests(MOCK_USER_REQUESTS);
+    const fetchRequests = async () => {
+      try {
+        const response = await maintenanceApi.getRequests({ requestType: 'USER' });
+        setRequests(response.data || []);
+      } catch (error) {
+        console.error('Failed to fetch user requests:', error);
+        setRequests([]);
+      }
+    };
+    fetchRequests();
   }, []);
 
   // Format hiển thị ngày giờ chuẩn Việt Nam (HH:mm DD/MM/YYYY)
@@ -113,17 +126,15 @@ export default function UserRequestsPage() {
       result = result.filter(item => item.type === selectedTypeFilter);
     }
 
-    // Xử lý Sắp xếp: ƯU TIÊN Khẩn cấp xếp lên đầu tiên, sau đó mới xếp theo thuộc tính được chọn (sortConfig)
+    // Xử lý Sắp xếp: ƯU TIÊN Khẩn cấp xếp lên đầu tiên, sau đó mới xếp theo thuộc tính được chọn
     result.sort((a, b) => {
       const aPriorityRank = PRIORITY_MAP[getEffectivePriority(a)]?.rank || 2;
       const bPriorityRank = PRIORITY_MAP[getEffectivePriority(b)]?.rank || 2;
 
-      // 1. Luôn đưa Khẩn cấp (rank 1) lên trước Bình thường (rank 2)
       if (aPriorityRank !== bPriorityRank) {
         return aPriorityRank - bPriorityRank;
       }
 
-      // 2. Nếu cùng mức độ khẩn cấp -> Sắp xếp theo tiêu chí người dùng click chọn trên tiêu đề cột
       let aVal = a[sortConfig.key] ?? '';
       let bVal = b[sortConfig.key] ?? '';
 
@@ -161,10 +172,38 @@ export default function UserRequestsPage() {
   const toggleExpand = (id) => setExpandedId(expandedId === id ? null : id);
 
   const handleAccept = (ticket) => {
-    if (window.confirm(`Bạn có chắc chắn muốn CHẤP NHẬN yêu cầu từ ${ticket.employeeName}?`)) {
+    if (window.confirm(`Xác nhận CHẤP NHẬN yêu cầu từ ${ticket.employeeName}?`)) {
       setRequests(prev => prev.map(item => 
         item.id === ticket.id ? { ...item, status: 'ACCEPTED' } : item
       ));
+
+      const formattedDeviceCode = Array.isArray(ticket.deviceCodes) 
+        ? ticket.deviceCodes[0] || ''
+        : (ticket.deviceCode || ticket.deviceCodes || '');
+
+      const isScrap = ticket.content?.toLowerCase().includes('thanh lý');
+
+      // 1. Trường hợp báo hỏng thanh lý -> Thông báo trực tiếp
+      if (ticket.type === 'REPORT_BROKEN' && isScrap) {
+        alert(`Đã duyệt yêu cầu thanh lý cho thiết bị ${formattedDeviceCode}`);
+        return;
+      }
+
+      // 2. Điều hướng sang Trang Lập kế hoạch bảo trì/sửa chữa
+      navigate('/maintenance-plan', {
+        state: {
+          fromApproval: true,
+          requestData: {
+            deviceCode: formattedDeviceCode,
+            deviceStatus: ticket.deviceStatus || 'Đang sử dụng',
+            type: ticket.type,
+            content: ticket.content || null,
+            estimatedCost: ticket.estimatedCost || 0,
+            employeeName: ticket.employeeName || null,
+            requestId: ticket.id || null
+          }
+        }
+      });
     }
   };
 
@@ -202,7 +241,6 @@ export default function UserRequestsPage() {
             Danh sách yêu cầu từ người dùng thiết bị
           </h2>
 
-          {/* Thanh lọc theo loại yêu cầu + Nút Xuất Excel */}
           <div className="filter-bar-container">
             <div className="filter-group">
               <label>LOẠI YÊU CẦU</label>
@@ -226,7 +264,6 @@ export default function UserRequestsPage() {
             />
           </div>
 
-          {/* Khung Bảng đủ 11 Cột */}
           <div className="frame-33-table-wrapper">
             <table className="tech-requests-table">
               <thead>
@@ -347,7 +384,6 @@ export default function UserRequestsPage() {
             </table>
           </div>
 
-          {/* Phân trang */}
           <Pagination 
             currentPage={currentPage}
             totalPages={totalPages}
@@ -356,7 +392,6 @@ export default function UserRequestsPage() {
             onPageChange={setCurrentPage}
           />
 
-          {/* Modal Từ Chối */}
           {isRejectOpen && (
             <RejectModal 
               isOpen={isRejectOpen}

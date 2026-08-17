@@ -43,6 +43,7 @@ export const getDefaultRouteByRole = (role) => {
       return '/manager/dashboard';
     case 'MAINTENANCE_STAFF':
     case 'TECHNICIAN':
+    case 'TECH':
       return '/technician-dashboard';
     case 'USER':
     default:
@@ -148,7 +149,7 @@ export default function AppRoutes() {
       <Route
         path="/admin/users"
         element={
-          <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER']}>
+          <ProtectedRoute allowedRoles={['ADMIN']}>
             <UserManagementPage />
           </ProtectedRoute>
         }

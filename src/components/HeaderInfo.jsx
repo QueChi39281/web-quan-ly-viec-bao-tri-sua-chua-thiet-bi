@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Wrench, ShieldCheck, User, UserCog, LogOut, Bell, Shield } from 'lucide-react';
-import { authApi, notificationApi } from '../services/api.js';
+import { authApi, notificationApi, userApi } from '../services/api.js';
 import NotificationPopup from './NotificationPopup.jsx';
 import './HeaderInfo.css'; 
 
@@ -8,16 +8,50 @@ export default function HeaderInfo({ userId, onLogout, onOpenNotifications }) {
   const [userInfo, setUserInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [unreadCount, setUnreadCount] = useState(0);
-  
-  // Trạng thái Bật/Tắt Popup
   const [showNotifications, setShowNotifications] = useState(false);
 
-  // 1. Lấy thông tin người dùng từ Auth Service (/auth/me)
+  // Helper bóc tách dữ liệu User từ response của API /users/:id hoặc /auth/me
+  const parseUserData = (rawResponse) => {
+    if (!rawResponse) return null;
+    const res = rawResponse.data || rawResponse;
+    
+    // Đọc theo cấu trúc API mới: res.data chính là object user
+    if (res.data && (res.data.employee_id || res.data.id)) {
+      return res.data;
+    }
+    return res.user || res;
+  };
+
+  // 1. Tải thông tin người dùng
   useEffect(() => {
     const fetchUserProfile = async () => {
       try {
-        const response = await authApi.getMe();
-        const userData = response.data?.data || response.data || response;
+        setLoading(true);
+        let userData = null;
+
+        // Ưu tiên 1: Lấy ID từ localStorage (được lưu lúc Login)
+        const cachedUser = localStorage.getItem('userInfo');
+        let currentUserId = userId;
+        
+        if (cachedUser) {
+          try {
+            const parsed = JSON.parse(cachedUser);
+            const extracted = parseUserData(parsed);
+            currentUserId = currentUserId || extracted?.id || extracted?.employee_id;
+          } catch (e) {
+            console.error('Lỗi parse cache user:', e);
+          }
+        }
+
+        // Gọi API lấy thông tin chi tiết qua Gateway: GET /users/:id
+        if (currentUserId && userApi?.getUserById) {
+          const response = await userApi.getUserById(currentUserId);
+          userData = parseUserData(response);
+        } else {
+          // Fallback gọi /auth/me nếu không có id
+          const response = await authApi.getMe();
+          userData = parseUserData(response);
+        }
 
         if (userData) {
           setUserInfo(userData);
@@ -26,10 +60,11 @@ export default function HeaderInfo({ userId, onLogout, onOpenNotifications }) {
       } catch (error) {
         console.error('Lỗi khi lấy thông tin người dùng:', error);
         
+        // Fallback dùng Cache khi mất kết nối
         const cachedUser = localStorage.getItem('userInfo');
         if (cachedUser) {
           try {
-            setUserInfo(JSON.parse(cachedUser));
+            setUserInfo(parseUserData(JSON.parse(cachedUser)));
           } catch (e) {
             setUserInfo(null);
           }
@@ -40,16 +75,23 @@ export default function HeaderInfo({ userId, onLogout, onOpenNotifications }) {
     };
 
     fetchUserProfile();
+
+    // Lắng nghe sự kiện đăng nhập thành công
+    window.addEventListener('userLoginSuccess', fetchUserProfile);
+
+    return () => {
+      window.removeEventListener('userLoginSuccess', fetchUserProfile);
+    };
   }, [userId]);
 
-  // 2. Lấy số lượng thông báo chưa đọc từ Notification Service
+  // 2. Lấy số lượng thông báo chưa đọc
   const fetchUnreadCount = async () => {
     try {
       const response = await notificationApi.getUnreadCount();
       const count = response.data?.count ?? response.data?.data ?? response.data ?? 0;
       setUnreadCount(typeof count === 'number' ? count : 0);
     } catch (error) {
-      // Bỏ qua log khi service chưa sẵn sàng
+      // Service thông báo chưa sẵn sàng
     }
   };
 
@@ -59,7 +101,7 @@ export default function HeaderInfo({ userId, onLogout, onOpenNotifications }) {
     return () => clearInterval(interval);
   }, []);
 
-  // 3. Logic Đăng xuất
+  // 3. Xử lý Đăng xuất
   const handleLogout = async () => {
     try {
       await authApi.logout();
@@ -75,7 +117,7 @@ export default function HeaderInfo({ userId, onLogout, onOpenNotifications }) {
     }
   };
 
-  // 4. Toggle bật tắt Popup
+  // 4. Toggle Notification
   const handleToggleNotification = () => {
     if (onOpenNotifications) {
       onOpenNotifications();
@@ -83,7 +125,7 @@ export default function HeaderInfo({ userId, onLogout, onOpenNotifications }) {
     setShowNotifications((prev) => !prev);
   };
 
-  // 5. Xác định Icon & Style theo Role
+  // 5. Mapping Icon & Badge theo Role từ API
   const getRoleBadge = (role) => {
     const normalizedRole = role?.toUpperCase();
     switch (normalizedRole) {
@@ -91,6 +133,7 @@ export default function HeaderInfo({ userId, onLogout, onOpenNotifications }) {
         return { icon: <ShieldCheck />, label: 'Quản trị viên', styleClass: 'role-admin' };
       case 'MANAGER':
         return { icon: <Shield />, label: 'Quản lý', styleClass: 'role-manager' };
+      case 'TECH':
       case 'TECHNICIAN':
       case 'MAINTENANCE_STAFF':
         return { icon: <Wrench />, label: 'Kỹ thuật viên', styleClass: 'role-staff' };
@@ -115,7 +158,7 @@ export default function HeaderInfo({ userId, onLogout, onOpenNotifications }) {
 
   const roleInfo = getRoleBadge(userInfo?.role);
   
-  // Trích xuất dữ liệu hiển thị
+  // Trích xuất dữ liệu khớp đúng với Cấu trúc Response của GET /users/:id
   const fullName = userInfo?.employee?.full_name || userInfo?.fullName || userInfo?.username || 'Người dùng';
   const email = userInfo?.email || 'N/A';
   const phone = userInfo?.employee?.phone || userInfo?.phone || 'Chưa cập nhật';
@@ -123,7 +166,7 @@ export default function HeaderInfo({ userId, onLogout, onOpenNotifications }) {
 
   return (
     <div className="header-user-info" style={{ position: 'relative' }}>
-      {/* 1. Avatar Icon */}
+      {/* Avatar Icon */}
       <div 
         className={`header-avatar ${roleInfo.styleClass}`} 
         title={position}
@@ -131,7 +174,7 @@ export default function HeaderInfo({ userId, onLogout, onOpenNotifications }) {
         {roleInfo.icon}
       </div>
 
-      {/* 2. Cột thông tin chi tiết */}
+      {/* Thông tin chi tiết */}
       <div className="header-details">
         <div className="header-title-group">
           <span className="header-name">{fullName}</span>
@@ -141,7 +184,7 @@ export default function HeaderInfo({ userId, onLogout, onOpenNotifications }) {
         <p className="header-phone">SĐT: {phone}</p>
       </div>
 
-      {/* 3. Nhóm Nút Thao tác */}
+      {/* Nhóm thao tác */}
       <div className="header-btn-group">
         <button
           type="button"
@@ -176,7 +219,7 @@ export default function HeaderInfo({ userId, onLogout, onOpenNotifications }) {
         </button>
       </div>
 
-      {/* 4. Dropdown Popup Thông báo */}
+      {/* Popup Thông báo */}
       <NotificationPopup
         isOpen={showNotifications}
         onClose={() => setShowNotifications(false)}

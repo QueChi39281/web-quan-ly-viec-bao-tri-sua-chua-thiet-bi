@@ -5,7 +5,7 @@ import ApproveModal from './components/ApproveModal';
 import RejectModal from './components/RejectModal';
 import Pagination from '../tickets/components/Pagination';
 import ExportExcelButton from '../../components/ExportExcelButton';
-import { MOCK_ACCEPTANCE_REQUESTS } from '../../constants/acceptanceMockData'; 
+import { maintenanceApi } from '../../services/api';
 import './AcceptancePage.css';
 
 const PAGE_SIZE = 30;
@@ -53,9 +53,18 @@ export default function AcceptancePage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [sortConfig, setSortConfig] = useState({ key: 'createdAt', direction: 'desc' });
 
-  // Nạp dữ liệu từ file mock
+  // Nạp dữ liệu từ API
   useEffect(() => {
-    setRequests(MOCK_ACCEPTANCE_REQUESTS);
+    const fetchRequests = async () => {
+      try {
+        const response = await maintenanceApi.getRequests({ status: 'PENDING_APPROVAL' });
+        setRequests(response.data || []);
+      } catch (error) {
+        console.error('Failed to fetch acceptance requests:', error);
+        setRequests([]);
+      }
+    };
+    fetchRequests();
   }, []);
 
   const handleSort = (key) => {

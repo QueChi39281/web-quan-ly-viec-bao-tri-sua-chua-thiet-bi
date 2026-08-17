@@ -176,12 +176,6 @@ export default function ManagerSidebar() {
           {isExpanded && openSubmenu.admin && (
             <div className="submenu-list">
               <div 
-                className={`submenu-item ${isActive('/admin/users') ? 'active-sub' : ''}`}
-                onClick={() => handleNavigate('/admin/users')}
-              >
-                Quản lý tài khoản
-              </div>
-              <div 
                 className={`submenu-item ${isActive('/admin/supplies') ? 'active-sub' : ''}`}
                 onClick={() => handleNavigate('/admin/supplies')}
               >

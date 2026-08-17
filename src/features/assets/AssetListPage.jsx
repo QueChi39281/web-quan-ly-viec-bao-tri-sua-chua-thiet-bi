@@ -6,6 +6,18 @@ import AssetListRow from './components/AssetListRow';
 import './AssetListPage.css';
 
 const ITEMS_PER_PAGE = 20;
+const ASSET_STORAGE_KEY = 'importedAssetsData';
+
+const readStoredAssets = () => {
+  try {
+    const raw = localStorage.getItem(ASSET_STORAGE_KEY);
+    if (!raw) return INITIAL_ASSETS;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_ASSETS;
+  } catch (error) {
+    return INITIAL_ASSETS;
+  }
+};
 
 export const INITIAL_ASSETS = [
   {
@@ -119,7 +131,11 @@ export const INITIAL_ASSETS = [
 ];
 
 export default function AssetListPage() {
-  const [assets, setAssets] = useState(INITIAL_ASSETS);
+  const [assets, setAssets] = useState(() => readStoredAssets());
+
+  useEffect(() => {
+    localStorage.setItem(ASSET_STORAGE_KEY, JSON.stringify(assets));
+  }, [assets]);
   const [editingRowId, setEditingRowId] = useState(null);
   const [backupRow, setBackupRow] = useState(null);
 
