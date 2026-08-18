@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Wrench, ShieldCheck, User, UserCog, LogOut, Bell, Shield } from 'lucide-react';
-import { authApi, notificationApi, userApi } from '../services/api.js';
+import { authApi, notificationApi, userApi, normalizeNotificationList, getCurrentEmployeeId } from '../services/api.js';
 import NotificationPopup from './NotificationPopup.jsx';
 import './HeaderInfo.css'; 
 
@@ -37,15 +37,17 @@ export default function HeaderInfo({ userId, onLogout, onOpenNotifications }) {
           try {
             const parsed = JSON.parse(cachedUser);
             const extracted = parseUserData(parsed);
-            currentUserId = currentUserId || extracted?.id || extracted?.employee_id;
+            currentUserId = currentUserId || extracted?.employee_id || extracted?.id;
           } catch (e) {
             console.error('Lỗi parse cache user:', e);
           }
         }
 
         // Gọi API lấy thông tin chi tiết qua Gateway: GET /users/:id
-        if (currentUserId && userApi?.getUserById) {
-          const response = await userApi.getUserById(currentUserId);
+        const targetUserId = currentUserId || localStorage.getItem('userId') || localStorage.getItem('userAccountId');
+
+        if (targetUserId && userApi?.getUserById) {
+          const response = await userApi.getUserById(targetUserId);
           userData = parseUserData(response);
         } else {
           // Fallback gọi /auth/me nếu không có id
@@ -86,12 +88,26 @@ export default function HeaderInfo({ userId, onLogout, onOpenNotifications }) {
 
   // 2. Lấy số lượng thông báo chưa đọc
   const fetchUnreadCount = async () => {
+    const employeeId = getCurrentEmployeeId();
+    if (!employeeId) {
+      setUnreadCount(0);
+      return;
+    }
+
     try {
-      const response = await notificationApi.getUnreadCount();
-      const count = response.data?.count ?? response.data?.data ?? response.data ?? 0;
-      setUnreadCount(typeof count === 'number' ? count : 0);
+      const response = await notificationApi.getEmployeeNotifications(employeeId);
+      const list = Array.isArray(response)
+        ? response
+        : response?.data?.data || response?.data || response?.items || [];
+      const normalizedList = normalizeNotificationList(list, employeeId);
+      setUnreadCount(normalizedList.filter((item) => !item.is_read).length);
     } catch (error) {
-      // Service thông báo chưa sẵn sàng
+      try {
+        const count = await notificationApi.getUnreadCount();
+        setUnreadCount(typeof count === 'number' ? count : Number(count) || 0);
+      } catch (fallbackError) {
+        setUnreadCount(0);
+      }
     }
   };
 
@@ -224,6 +240,7 @@ export default function HeaderInfo({ userId, onLogout, onOpenNotifications }) {
         isOpen={showNotifications}
         onClose={() => setShowNotifications(false)}
         onUnreadChange={(newCount) => setUnreadCount(newCount)}
+        onRefreshUnread={fetchUnreadCount}
       />
     </div>
   );

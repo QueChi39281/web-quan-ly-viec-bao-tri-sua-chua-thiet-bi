@@ -24,6 +24,7 @@ import DashboardPage from "./features/dashboard/DashboardPage";
 
 // Import thêm các trang tương ứng với Menu Quản trị mới
 import UserManagementPage from "./features/admin/UserManagementPage"; // Quản lý tài khoản
+import SystemLogPage from "./features/admin/SystemLogPage"; // Log hệ thống
 import SupplyManagementPage from "./features/admin/SupplyManagementPage"; // Quản lý vật tư
 import DeviceLogsPage from "./features/admin/DeviceTrackingPage"; // Sổ theo dõi thiết bị
 import ImportDataPage from "./features/admin/ImportDataPage"; // Import file dữ liệu
@@ -38,7 +39,7 @@ export const getDefaultRouteByRole = (role) => {
 
   switch (normalizedRole) {
     case 'ADMIN':
-      return '/admin/tickets';
+      return '/admin/users';
     case 'MANAGER':
       return '/manager/dashboard';
     case 'MAINTENANCE_STAFF':
@@ -151,6 +152,14 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute allowedRoles={['ADMIN']}>
             <UserManagementPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/system-logs"
+        element={
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <SystemLogPage />
           </ProtectedRoute>
         }
       />

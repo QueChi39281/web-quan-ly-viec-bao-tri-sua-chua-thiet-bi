@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Wrench, ShieldCheck, User, UserCog, LogOut, Bell, Shield } from 'lucide-react';
-import { authApi, notificationApi, userApi } from '../../../services/api.js';
+import {
+  authApi,
+  notificationApi,
+  userApi,
+  normalizeNotificationList,
+  getCurrentEmployeeId,
+} from '../../../services/api.js';
 import NotificationPopup from './NotificationPopup.jsx';
 import './HeaderInfo.css'; 
 
@@ -85,12 +91,26 @@ export default function HeaderInfo({ userId, onLogout, onOpenNotifications }) {
 
   // 2. Lấy số lượng thông báo chưa đọc
   const fetchUnreadCount = async () => {
+    const employeeId = getCurrentEmployeeId();
+    if (!employeeId) {
+      setUnreadCount(0);
+      return;
+    }
+
     try {
-      const response = await notificationApi.getUnreadCount();
-      const count = response.data?.count ?? response.data?.data ?? response.data ?? 0;
-      setUnreadCount(typeof count === 'number' ? count : 0);
+      const response = await notificationApi.getEmployeeNotifications(employeeId);
+      const list = Array.isArray(response)
+        ? response
+        : response?.data?.data || response?.data || response?.items || [];
+      const normalizedList = normalizeNotificationList(list, employeeId);
+      setUnreadCount(normalizedList.filter((item) => !item.is_read).length);
     } catch (error) {
-      // Bỏ qua log khi service thông báo tạm thời offline
+      try {
+        const count = await notificationApi.getUnreadCount();
+        setUnreadCount(typeof count === 'number' ? count : Number(count) || 0);
+      } catch (fallbackError) {
+        setUnreadCount(0);
+      }
     }
   };
 

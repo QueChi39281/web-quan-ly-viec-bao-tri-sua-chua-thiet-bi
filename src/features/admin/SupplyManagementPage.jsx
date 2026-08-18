@@ -3,139 +3,43 @@ import ManagerSidebar from '../../components/ManagerSidebar';
 import HeaderInfo from '../../components/HeaderInfo';
 import ExportExcelButton from '../../components/ExportExcelButton';
 import SupplyTableRow from './SupplyTableRow';
+import { inventoryApi } from '../../services/api';
 import './SupplyManagementPage.css';
 
 const ITEMS_PER_PAGE = 20;
-const SUPPLY_STORAGE_KEY = 'importedSuppliesData';
-
-const readStoredSupplies = () => {
-  try {
-    const raw = localStorage.getItem(SUPPLY_STORAGE_KEY);
-    if (!raw) return INITIAL_SUPPLIES;
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_SUPPLIES;
-  } catch (error) {
-    return INITIAL_SUPPLIES;
-  }
-};
-
-export const INITIAL_SUPPLIES = [
-  {
-    id: 1,
-    selected: false,
-    supplyName: 'Hộp mực in HP 83A (CF283A)',
-    supplyCode: 'VT-VP01',
-    supplier: 'Công ty Máy tính & Thiết bị Lê Bảo Minh',
-    importQuantity: 50,
-    remainingQuantity: 12
-  },
-  {
-    id: 2,
-    selected: false,
-    supplyName: 'Giấy in A4 Double A 70gsm (Thùng 5 ram)',
-    supplyCode: 'VT-VP02',
-    supplier: 'Văn phòng phẩm Hồng Hà',
-    importQuantity: 100,
-    remainingQuantity: 35
-  },
-  {
-    id: 3,
-    selected: false,
-    supplyName: 'Cụm Drum máy photocopy Ricoh MP 3054',
-    supplyCode: 'VT-VP03',
-    supplier: 'Công ty Phú Sơn Copier',
-    importQuantity: 15,
-    remainingQuantity: 3
-  },
-  {
-    id: 4,
-    selected: false,
-    supplyName: 'Dây cáp mạng AMP/CommScope Cat6 (Cuộn 305m)',
-    supplyCode: 'VT-VP04',
-    supplier: 'Thiết bị Mạng MTC',
-    importQuantity: 10,
-    remainingQuantity: 2
-  },
-  {
-    id: 5,
-    selected: false,
-    supplyName: 'Hạt mạng RJ45 Cat6 CommScope (Hộp 100 hạt)',
-    supplyCode: 'VT-VP05',
-    supplier: 'Thiết bị Mạng MTC',
-    importQuantity: 20,
-    remainingQuantity: 8
-  },
-  {
-    id: 6,
-    selected: false,
-    supplyName: 'Chuột không dây Logitech B100 USB',
-    supplyCode: 'VT-VP06',
-    supplier: 'Phong Vũ Computer',
-    importQuantity: 60,
-    remainingQuantity: 15
-  },
-  {
-    id: 7,
-    selected: false,
-    supplyName: 'Bàn phím có dây Logitech K120',
-    supplyCode: 'VT-VP07',
-    supplier: 'Phong Vũ Computer',
-    importQuantity: 40,
-    remainingQuantity: 10
-  },
-  {
-    id: 8,
-    selected: false,
-    supplyName: 'Ổ cứng SSD Kingston 240GB 2.5 inch',
-    supplyCode: 'VT-VP08',
-    supplier: 'Công ty tin học Vĩnh Xuân',
-    importQuantity: 30,
-    remainingQuantity: 6
-  },
-  {
-    id: 9,
-    selected: false,
-    supplyName: 'Thanh RAM Kingston 8GB DDR4 3200MHz',
-    supplyCode: 'VT-VP09',
-    supplier: 'Công ty tin học Vĩnh Xuân',
-    importQuantity: 25,
-    remainingQuantity: 9
-  },
-  {
-    id: 10,
-    selected: false,
-    supplyName: 'Bình ắc quy UPS APC 12V-7.2Ah',
-    supplyCode: 'VT-VP10',
-    supplier: 'Tập đoàn Nguyên Kim UPS',
-    importQuantity: 20,
-    remainingQuantity: 4
-  },
-  {
-    id: 11,
-    selected: false,
-    supplyName: 'Bóng đèn máy chiếu Panasonic PT-LB386',
-    supplyCode: 'VT-VP11',
-    supplier: 'Thiết bị Số Đại Nam',
-    importQuantity: 8,
-    remainingQuantity: 2
-  },
-  {
-    id: 12,
-    selected: false,
-    supplyName: 'Bộ vệ sinh máy tính & màn hình RP7 + Bọt biển',
-    supplyCode: 'VT-VP12',
-    supplier: 'Văn phòng phẩm Hà Nội',
-    importQuantity: 50,
-    remainingQuantity: 22
-  }
-];
 
 export default function SupplyManagementPage() {
-  const [supplies, setSupplies] = useState(() => readStoredSupplies());
+  const [supplies, setSupplies] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    localStorage.setItem(SUPPLY_STORAGE_KEY, JSON.stringify(supplies));
-  }, [supplies]);
+    const fetchSupplies = async () => {
+      try {
+        setLoading(true);
+        const response = await inventoryApi.getItems({ limit: 100 });
+        const data = Array.isArray(response) ? response : response?.data || response?.items || [];
+
+        const mapped = (Array.isArray(data) ? data : []).map((item, index) => ({
+          id: item.id || item._id || index + 1,
+          selected: false,
+          supplyName: item.name || item.supplyName || item.itemName || 'N/A',
+          supplyCode: item.code || item.itemCode || item.supplyCode || `VT-${index + 1}`,
+          supplier: item.supplierName || item.supplier || item.vendor || 'N/A',
+          importQuantity: Number(item.importQuantity ?? item.quantity ?? item.totalQuantity ?? 0),
+          remainingQuantity: Number(item.remainingQuantity ?? item.availableQuantity ?? item.stock ?? item.quantity ?? 0),
+        }));
+
+        setSupplies(mapped);
+      } catch (error) {
+        console.error('Không thể tải vật tư từ API:', error);
+        setSupplies([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSupplies();
+  }, []);
   const [editingRowId, setEditingRowId] = useState(null);
   const [backupRow, setBackupRow] = useState(null);
 

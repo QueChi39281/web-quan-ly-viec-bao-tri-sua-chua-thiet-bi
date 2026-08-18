@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import XLSX from 'xlsx-js-style';
+import * as XLSX from 'xlsx';
 import {
   UploadCloud,
   FileSpreadsheet,

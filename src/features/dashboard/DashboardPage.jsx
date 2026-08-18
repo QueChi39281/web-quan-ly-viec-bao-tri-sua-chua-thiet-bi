@@ -1,13 +1,13 @@
-import React from 'react';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer 
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
 
 import HeaderInfo from '../../components/HeaderInfo';
 import ManagerSidebar from '../../components/ManagerSidebar';
+import { maintenanceApi, reportApi } from '../../services/api';
 import './DashboardPage.css';
 
-// 1. Thống kê chi phí linh kiện
 const mockSparePartsCostData = [
   { region: 'RAM & SSD', Q1: 45, Q2: 32, Q3: 28, Q4: 55 },
   { region: 'Màn hình', Q1: 60, Q2: 48, Q3: 52, Q4: 70 },
@@ -16,7 +16,6 @@ const mockSparePartsCostData = [
   { region: 'Phụ kiện', Q1: 15, Q2: 12, Q3: 10, Q4: 18 },
 ];
 
-// 2. Thống kê thời gian trung bình sửa sự cố
 const mockFixTimeData = [
   { region: 'N.V. An', Q1: 2.5, Q2: 2.0, Q3: 1.8, Q4: 2.2 },
   { region: 'T.T. Bích', Q1: 3.8, Q2: 3.1, Q3: 2.8, Q4: 3.2 },
@@ -25,7 +24,6 @@ const mockFixTimeData = [
   { region: 'V.Q. Huy', Q1: 2.8, Q2: 2.2, Q3: 2.0, Q4: 2.5 },
 ];
 
-// 3. Thống kê tần suất hư hỏng của thiết bị
 const mockFailureFrequencyData = [
   { region: 'Laptop', Q1: 35, Q2: 28, Q3: 22, Q4: 40 },
   { region: 'PC Bàn', Q1: 25, Q2: 18, Q3: 15, Q4: 28 },
@@ -34,7 +32,6 @@ const mockFailureFrequencyData = [
   { region: 'Mạng', Q1: 12, Q2: 8, Q3: 6, Q4: 15 },
 ];
 
-// 4. Thống kê tần suất hư hỏng của thiết bị theo nhà cung cấp
 const mockVendorFailureData = [
   { region: 'Dell', Q1: 12, Q2: 8, Q3: 6, Q4: 10 },
   { region: 'HP', Q1: 18, Q2: 14, Q3: 10, Q4: 15 },
@@ -43,7 +40,6 @@ const mockVendorFailureData = [
   { region: 'Apple', Q1: 4, Q2: 2, Q3: 3, Q4: 5 },
 ];
 
-// 5. Danh sách 10 dữ liệu mẫu (Gồm cả việc Gấp và Định kỳ đan xen)
 const mockMaintenanceTasks = [
   { id: 1, name: 'Máy in Laser HP (TB-9981)', deadline: 'Hôm nay - 15:00', isUrgent: true, tagText: 'Gấp' },
   { id: 2, name: 'Laptop Dell Inspiron 15', deadline: 'Ngày mai - 09:00', isUrgent: false, tagText: 'Định kỳ' },
@@ -57,11 +53,66 @@ const mockMaintenanceTasks = [
   { id: 10, name: 'Camera an ninh Cổng chính', deadline: '30/08/2026', isUrgent: false, tagText: 'Định kỳ' },
 ];
 
+const defaultDashboard = {
+  totalDevices: 124,
+  pendingMaintenance: 12,
+  completed: 85,
+  issues: 3,
+  charts: {
+    sparePartsCostData: mockSparePartsCostData,
+    fixTimeData: mockFixTimeData,
+    failureFrequencyData: mockFailureFrequencyData,
+    vendorFailureData: mockVendorFailureData,
+  },
+  tasks: mockMaintenanceTasks,
+};
+
 export default function DashboardPage() {
-  // Logic Sắp xếp: Công việc có isUrgent === true sẽ luôn đẩy lên đầu danh sách
-  const sortedMaintenanceTasks = [...mockMaintenanceTasks].sort((a, b) => {
-    return (b.isUrgent ? 1 : 0) - (a.isUrgent ? 1 : 0);
-  });
+  const [dashboard, setDashboard] = useState(defaultDashboard);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const [summaryRes, requestsRes] = await Promise.all([
+          reportApi.getDashboardSummary(),
+          maintenanceApi.getRequests({ status: 'PLANNING' }),
+        ]);
+
+        const summary = summaryRes?.data || summaryRes || {};
+        const requests = Array.isArray(requestsRes?.data) ? requestsRes.data : (Array.isArray(requestsRes) ? requestsRes : []);
+
+        setDashboard({
+          totalDevices: Number(summary.totalDevices ?? summary.total_devices ?? defaultDashboard.totalDevices),
+          pendingMaintenance: Number(summary.pendingMaintenance ?? summary.pending_maintenance ?? defaultDashboard.pendingMaintenance),
+          completed: Number(summary.completed ?? defaultDashboard.completed),
+          issues: Number(summary.issues ?? defaultDashboard.issues),
+          charts: {
+            sparePartsCostData: summary.sparePartsCostData || defaultDashboard.charts.sparePartsCostData,
+            fixTimeData: summary.fixTimeData || defaultDashboard.charts.fixTimeData,
+            failureFrequencyData: summary.failureFrequencyData || defaultDashboard.charts.failureFrequencyData,
+            vendorFailureData: summary.vendorFailureData || defaultDashboard.charts.vendorFailureData,
+          },
+          tasks: requests.length ? requests.map((item, idx) => ({
+            id: item.id ?? idx + 1,
+            name: item.deviceName || item.device_name || item.title || `Yêu cầu #${idx + 1}`,
+            deadline: item.scheduledDate || item.deadline || 'Chưa có thời hạn',
+            isUrgent: String(item.priority || '').toUpperCase() === 'HIGH',
+            tagText: item.priority || 'Định kỳ',
+          })) : defaultDashboard.tasks,
+        });
+      } catch (error) {
+        console.error('Không thể tải dashboard từ API, dùng dữ liệu dự phòng:', error);
+        setDashboard(defaultDashboard);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
+  const sortedMaintenanceTasks = useMemo(
+    () => [...dashboard.tasks].sort((a, b) => Number(b.isUrgent) - Number(a.isUrgent)),
+    [dashboard.tasks]
+  );
 
   return (
     <div className="page-root-layout">
@@ -75,13 +126,12 @@ export default function DashboardPage() {
         <main className="main-content-container">
           <h2 className="dashboard-title">BẢNG ĐIỀU KHIỂN TỔNG QUAN</h2>
 
-          {/* 1. KHU VỰC THỐNG KÊ KPI */}
           <div className="kpi-grid-container">
             <div className="kpi-card">
               <div className="kpi-icon-wrapper kpi-blue">⚙️</div>
               <div className="kpi-info-group">
                 <span className="kpi-label">Tổng thiết bị</span>
-                <span className="kpi-value">124</span>
+                <span className="kpi-value">{dashboard.totalDevices}</span>
               </div>
             </div>
 
@@ -89,7 +139,7 @@ export default function DashboardPage() {
               <div className="kpi-icon-wrapper kpi-amber">🛠️</div>
               <div className="kpi-info-group">
                 <span className="kpi-label">Chờ bảo trì</span>
-                <span className="kpi-value">12</span>
+                <span className="kpi-value">{dashboard.pendingMaintenance}</span>
               </div>
             </div>
 
@@ -97,7 +147,7 @@ export default function DashboardPage() {
               <div className="kpi-icon-wrapper kpi-green">✅</div>
               <div className="kpi-info-group">
                 <span className="kpi-label">Đã hoàn thành</span>
-                <span className="kpi-value">85</span>
+                <span className="kpi-value">{dashboard.completed}</span>
               </div>
             </div>
 
@@ -105,38 +155,35 @@ export default function DashboardPage() {
               <div className="kpi-icon-wrapper kpi-red">⚠️</div>
               <div className="kpi-info-group">
                 <span className="kpi-label">Sự cố hỏng hóc</span>
-                <span className="kpi-value">3</span>
+                <span className="kpi-value">{dashboard.issues}</span>
               </div>
             </div>
           </div>
 
-          {/* 2. KHU VỰC NỘI DUNG CHÍNH (3 CỘT) */}
           <div className="dashboard-main-split">
-            {/* CỘT 1 & 2: LƯỚI 2x2 DÀNH CHO 4 BIỂU ĐỒ */}
             <div className="chart-grid">
               <ChartCard title="Thống kê chi phí linh kiện:">
-                <StackedBarChart data={mockSparePartsCostData} unit="Tr VNĐ" />
+                <StackedBarChart data={dashboard.charts.sparePartsCostData} unit="Tr VNĐ" />
               </ChartCard>
 
               <ChartCard title="Thống kê thời gian trung bình sửa sự cố:">
-                <StackedBarChart data={mockFixTimeData} unit="giờ" />
+                <StackedBarChart data={dashboard.charts.fixTimeData} unit="giờ" />
               </ChartCard>
 
               <ChartCard title="Thống kê tần suất hư hỏng của thiết bị:">
-                <StackedBarChart data={mockFailureFrequencyData} unit="lần" />
+                <StackedBarChart data={dashboard.charts.failureFrequencyData} unit="lần" />
               </ChartCard>
 
               <ChartCard title="Thống kê tần suất hư hỏng theo NCC:">
-                <StackedBarChart data={mockVendorFailureData} unit="ca" />
+                <StackedBarChart data={dashboard.charts.vendorFailureData} unit="ca" />
               </ChartCard>
             </div>
 
-            {/* CỘT 3: LỊCH BẢO TRÌ SẮP TỚI (CÁC MỤC "GẤP" HIỆN Ở ĐẦU) */}
             <div className="summary-card-wrapper">
               <div className="card-header-title">
                 Lịch bảo trì sắp tới ({sortedMaintenanceTasks.length})
               </div>
-              
+
               <div className="recent-tasks-list">
                 {sortedMaintenanceTasks.map((task) => (
                   <div key={task.id} className={`task-item-row ${task.isUrgent ? 'urgent' : ''}`}>
@@ -152,7 +199,6 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
-
         </main>
       </div>
     </div>

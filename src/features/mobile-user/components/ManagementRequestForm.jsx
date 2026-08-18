@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { deviceApi } from '../../../services/api.js';
 
 export default function ManagementRequestForm({
@@ -9,6 +9,7 @@ export default function ManagementRequestForm({
 }) {
   const [devicesList, setDevicesList] = useState([]);
   const [loadingDevices, setLoadingDevices] = useState(false);
+  const [typedDeviceName, setTypedDeviceName] = useState('');
 
   // Lấy danh sách thiết bị khi chọn loại "YEU_CAU_THIET_BI"
   useEffect(() => {
@@ -17,7 +18,9 @@ export default function ManagementRequestForm({
         try {
           setLoadingDevices(true);
           const response = await deviceApi.getDevices({ limit: 100 });
-          const list = response.data?.data || response.data?.items || response.data || [];
+          const list = Array.isArray(response)
+            ? response
+            : response?.data?.data || response?.data?.items || response?.data || response?.items || [];
           setDevicesList(Array.isArray(list) ? list : []);
         } catch (error) {
           console.error('Lỗi khi lấy danh sách thiết bị:', error);
@@ -34,6 +37,64 @@ export default function ManagementRequestForm({
   const hidePriority =
     formData.requestCategory === 'TRA_THIET_BI' ||
     formData.requestCategory === 'DOI_LICH_BAO_TRI';
+
+  const filteredDeviceSuggestions = useMemo(() => {
+    const keyword = typedDeviceName.trim().toLowerCase();
+    if (!keyword) return devicesList.slice(0, 10);
+
+    return devicesList
+      .filter((device) => {
+        const name = (device.name || device.deviceName || '').toLowerCase();
+        const code = (device.code || device.deviceCode || device.deviceId || '').toLowerCase();
+        return name.includes(keyword) || code.includes(keyword);
+      })
+      .slice(0, 10);
+  }, [devicesList, typedDeviceName]);
+
+  const handleDeviceNameChange = (value) => {
+    setTypedDeviceName(value);
+    setFormData({ ...formData, deviceId: value });
+  };
+
+  const handleSuggestionSelect = (device) => {
+    const selectedValue = device.id || device._id || device.code || device.deviceId || device.name || '';
+    setTypedDeviceName(device.name || device.deviceName || '');
+    setFormData({ ...formData, deviceId: selectedValue });
+  };
+
+  useEffect(() => {
+    if (formData.requestCategory !== 'YEU_CAU_THIET_BI') return;
+
+    const rawValue = String(formData.deviceId || '').trim();
+    if (!rawValue) {
+      setTypedDeviceName('');
+      return;
+    }
+
+    const normalizedValue = rawValue.toLowerCase();
+    const matchedDevice = devicesList.find((device) => {
+      const candidates = [
+        device.name,
+        device.deviceName,
+        device.code,
+        device.deviceCode,
+        device.deviceId,
+        device.id,
+        device._id
+      ].filter(Boolean).map((value) => String(value).trim().toLowerCase());
+
+      return candidates.some((candidate) => candidate === normalizedValue || candidate.includes(normalizedValue));
+    });
+
+    if (matchedDevice) {
+      const nextName = matchedDevice.name || matchedDevice.deviceName || '';
+      const nextValue = matchedDevice.id || matchedDevice._id || matchedDevice.code || matchedDevice.deviceCode || matchedDevice.deviceId || rawValue;
+      setTypedDeviceName(nextName);
+      setFormData((prev) => ({ ...prev, deviceId: nextValue }));
+    } else {
+      setTypedDeviceName(rawValue);
+    }
+  }, [devicesList, formData.deviceId, formData.requestCategory]);
 
   return (
     <div className="form-card">
@@ -61,21 +122,37 @@ export default function ManagementRequestForm({
           </label>
 
           {formData.requestCategory === 'YEU_CAU_THIET_BI' ? (
-            <select
-              value={formData.deviceId}
-              onChange={(e) => setFormData({ ...formData, deviceId: e.target.value })}
-              className="select-field"
-              required
-            >
-              <option value="">
-                -- {loadingDevices ? 'Đang tải danh sách...' : 'Chọn thiết bị'} --
-              </option>
-              {devicesList.map((device) => (
-                <option key={device.id || device._id} value={device.id || device._id || device.code}>
-                  {device.name || device.deviceName} ({device.code || device.deviceId || 'Mã N/A'})
-                </option>
-              ))}
-            </select>
+            <div className="device-search-wrap">
+              <input
+                type="text"
+                value={typedDeviceName}
+                onChange={(e) => handleDeviceNameChange(e.target.value)}
+                placeholder={loadingDevices ? 'Đang tải danh sách...' : 'Nhập tên thiết bị (gợi ý tối đa 10)'}
+                className="input-field"
+                list="device-suggestions"
+                autoComplete="off"
+                required
+              />
+              <datalist id="device-suggestions">
+                {filteredDeviceSuggestions.map((device) => (
+                  <option key={device.id || device._id || device.code || device.deviceName} value={device.name || device.deviceName} />
+                ))}
+              </datalist>
+              {filteredDeviceSuggestions.length > 0 && (
+                <div className="device-suggestion-box">
+                  {filteredDeviceSuggestions.map((device) => (
+                    <button
+                      key={device.id || device._id || device.code || device.deviceName}
+                      type="button"
+                      className="device-suggestion-item"
+                      onClick={() => handleSuggestionSelect(device)}
+                    >
+                      {device.name || device.deviceName} {device.code || device.deviceId ? `(${device.code || device.deviceId})` : ''}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           ) : (
             <input
               type="text"

@@ -8,7 +8,7 @@ export const getRouteByRole = (role) => {
   const normalizedRole = role?.toUpperCase();
   switch (normalizedRole) {
     case 'ADMIN':
-      return '/admin/tickets';
+      return '/admin/users';
     case 'MANAGER':
       return '/manager/dashboard';
     case 'TECH':
@@ -85,10 +85,13 @@ export default function LoginPage() {
           throw new Error("Dữ liệu trả về không hợp lệ (thiếu user/role)");
         }
 
-        // Lưu thông tin vào LocalStorage
+        // Lưu thông tin vào LocalStorage theo contract gateway thực tế
+        const employeeId = userData.employee_id || userData.id;
         localStorage.setItem('accessToken', token);
         localStorage.setItem('refreshToken', refreshToken);
-        localStorage.setItem('userId', userData.id);
+        localStorage.setItem('employeeId', employeeId);
+        localStorage.setItem('userId', employeeId);
+        localStorage.setItem('userAccountId', userData.id || employeeId);
         localStorage.setItem('userRole', userData.role);
         localStorage.setItem('userInfo', JSON.stringify(userData));
 

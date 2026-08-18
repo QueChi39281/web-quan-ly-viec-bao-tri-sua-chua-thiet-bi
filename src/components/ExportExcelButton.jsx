@@ -1,6 +1,6 @@
 //src/components/ExportExcelButton.jsx
 import React from 'react';
-import XLSX from 'xlsx-js-style';
+import * as XLSX from 'xlsx';
 import './ExportExcelButton.css';
 
 export default function ExportExcelButton({ 

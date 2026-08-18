@@ -3,56 +3,14 @@ import ManagerSidebar from '../../components/ManagerSidebar';
 import HeaderInfo from '../../components/HeaderInfo';
 import ExportExcelButton from '../../components/ExportExcelButton';
 import DeviceTrackingRow from './DeviceTrackingRow';
+import { deviceApi } from '../../services/api';
 import './DeviceTrackingPage.css';
 
 const ITEMS_PER_PAGE = 20;
 
-// MOCK DATA: Nhật ký theo dõi thiết bị văn phòng (Máy in HP LaserJet)
-const INITIAL_LOGS = [
-  {
-    id: 1,
-    selected: false,
-    actionType: 'Báo hư hỏng',
-    transferDate: '2026-02-10',
-    eventTime: '2026-02-10T09:15',
-    maintenanceContent: 'Báo hỏng kẹt giấy liên tục và in bị sọc đen dọc trang',
-    cost: 0,
-    deviceStatus: 'Chờ sửa chữa'
-  },
-  {
-    id: 2,
-    selected: false,
-    actionType: 'Sửa chữa',
-    transferDate: '2026-02-11',
-    eventTime: '2026-02-11T14:30',
-    maintenanceContent: 'Thay bao lụa, quả lô cao su ép và vệ sinh hộp mực',
-    cost: 650000,
-    deviceStatus: 'Đang sửa chữa'
-  },
-  {
-    id: 3,
-    selected: false,
-    actionType: 'Nghiệm thu',
-    transferDate: '2026-02-12',
-    eventTime: '2026-02-12T10:00',
-    maintenanceContent: 'In thử 50 bản đạt chất lượng nét, không kẹt giấy, bàn giao về phòng Kế toán',
-    cost: 0,
-    deviceStatus: 'Hoạt động bình thường'
-  },
-  {
-    id: 4,
-    selected: false,
-    actionType: 'Bảo trì định kỳ',
-    transferDate: '2026-05-15',
-    eventTime: '2026-05-15T08:30',
-    maintenanceContent: 'Vệ sinh công nghiệp toàn bộ máy, thay hộp mực mới HP 76A',
-    cost: 1200000,
-    deviceStatus: 'Hoạt động bình thường'
-  }
-];
-
 export default function DeviceTrackingPage() {
-  const [logs, setLogs] = useState(INITIAL_LOGS);
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [editingRowId, setEditingRowId] = useState(null);
   const [backupRow, setBackupRow] = useState(null);
 
@@ -72,6 +30,60 @@ export default function DeviceTrackingPage() {
   const [showActionMenu, setShowActionMenu] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [timeSortOrder, setTimeSortOrder] = useState('desc'); 
+
+  useEffect(() => {
+    const fetchDeviceHistory = async () => {
+      try {
+        setLoading(true);
+        const devicesRes = await deviceApi.getDevices({ limit: 20 });
+        const devices = Array.isArray(devicesRes) ? devicesRes : devicesRes?.data || devicesRes?.items || [];
+        const selectedDevice = Array.isArray(devices) && devices.length > 0 ? devices[0] : null;
+
+        if (!selectedDevice) {
+          setLogs([]);
+          setSelectedDeviceInfo({
+            deviceName: 'Chưa có thiết bị',
+            deviceCode: '-',
+            supplier: 'N/A',
+            info: '',
+            currentStatus: 'Không có dữ liệu',
+            currentLocation: 'N/A'
+          });
+          return;
+        }
+
+        setSelectedDeviceInfo({
+          deviceName: selectedDevice.deviceName || selectedDevice.name || 'N/A',
+          deviceCode: selectedDevice.deviceCode || selectedDevice.code || '-',
+          supplier: selectedDevice.supplierName || selectedDevice.supplier || 'N/A',
+          info: selectedDevice.info || selectedDevice.description || selectedDevice.model || '',
+          currentStatus: selectedDevice.status || 'Hoạt động bình thường',
+          currentLocation: selectedDevice.location || selectedDevice.currentLocation || 'N/A',
+        });
+
+        const historyRes = await deviceApi.getDeviceStateHistories(selectedDevice.id || selectedDevice._id);
+        const history = Array.isArray(historyRes) ? historyRes : historyRes?.data || historyRes?.items || [];
+
+        setLogs((Array.isArray(history) ? history : []).map((item, index) => ({
+          id: item.id || item._id || index + 1,
+          selected: false,
+          actionType: item.type || item.actionType || 'Bảo trì',
+          transferDate: item.date || item.transferDate || item.createdAt || item.created_at || new Date().toISOString().slice(0, 10),
+          eventTime: item.eventTime || item.time || item.createdAt || item.created_at || new Date().toISOString(),
+          maintenanceContent: item.description || item.maintenanceContent || item.content || 'Không có mô tả',
+          cost: Number(item.cost ?? item.totalCost ?? 0),
+          deviceStatus: item.status || item.deviceStatus || 'Hoạt động bình thường',
+        })));
+      } catch (error) {
+        console.error('Không thể tải lịch sử thiết bị từ API:', error);
+        setLogs([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDeviceHistory();
+  }, []);
 
   const excelColumns = useMemo(() => [
     { header: 'STT', key: 'stt', align: 'center', formatter: (_, __, idx) => idx + 1 },
