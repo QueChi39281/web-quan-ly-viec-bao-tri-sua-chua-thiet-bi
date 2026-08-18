@@ -3,8 +3,7 @@ import { X, Check, Bell, CheckCheck, Inbox } from 'lucide-react';
 import { 
   notificationApi, 
   normalizeNotificationList, 
-  getCurrentEmployeeId,
-  saveLocalReadIds 
+  getCurrentEmployeeId
 } from '../services/api.js';
 import './NotificationPopup.css';
 
@@ -75,8 +74,6 @@ export default function NotificationPopup({ isOpen, onClose, onUnreadChange }) {
     const employeeId = getCurrentEmployeeId();
 
     // A. Lưu ID vào cache FE để bảo vệ khỏi dữ liệu thiếu từ API GET
-    saveLocalReadIds([targetId], employeeId);
-
     // B. Cập nhật State UI ngay lập tức
     const updatedList = notifications.map((item) =>
       String(item.id) === targetId ? { ...item, isRead: true, is_read: true } : item
@@ -87,6 +84,7 @@ export default function NotificationPopup({ isOpen, onClose, onUnreadChange }) {
     // C. Bắn API cập nhật DB
     try {
       await notificationApi.markAsRead(targetId);
+      await fetchNotifications();
     } catch (error) {
       console.error('Lỗi khi gọi API markAsRead:', error);
     }

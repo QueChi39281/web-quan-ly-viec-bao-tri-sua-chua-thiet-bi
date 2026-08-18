@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import HeaderInfo from '../components/HeaderInfo';
 import TechMenuBar from '../components/TechMenuBar';
 import PartRequestModal from '../components/PartRequestModal';
 import PartReturnModal from '../components/PartReturnModal';
 import WarrantyRequestModal from '../components/WarrantyRequestModal';
 import DamageReportModal from '../components/DamageReportModal';
+import { deviceApi, getCurrentEmployeeId, inventoryApi, maintenanceApi } from '../../../services/api';
 import './DeviceDetailPage.css';
 
 // Thêm Icon AI (Nếu chưa cài lucide-react, bạn có thể thay bằng SVG bên dưới)
@@ -26,10 +27,13 @@ const DEVICE_STATES = {
 export default function DeviceDetailPage() {
   const { deviceId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const planId = location.state?.planId;
 
   const [activeNavMenu, setActiveNavMenu] = useState('');
 
   const goToSchedule = () => navigate('/technician/schedule');
+  const goToHome = () => navigate('/technician-dashboard');
   const goToUnassignedTasks = () => navigate('/technician/tasks/unassigned');
   const goToAssignedTasks = () => navigate('/technician/tasks/assigned');
 
@@ -41,23 +45,21 @@ export default function DeviceDetailPage() {
   ]);
 
   const [deviceData, setDeviceData] = useState({
-    deviceCode: deviceId || 'TB-9982',
-    deviceName: 'Máy nén khí Piston',
-    location: 'Xưởng A - Khu 2',
-    manufacturer: 'Hitachi Japan',
-    warrantyPeriod: '12/2026',
-    userErrorDescription: 'Máy phát ra tiếng ồn lớn, áp suất tụt nhanh.',
-    urgency: 'Bình thường', 
-    status: 'Đang sửa',     
-    deviceState: DEVICE_STATES.UNDER_MAINTENANCE,
-    hasReportForm: false,   
-    partStatus: 'Chờ xét duyệt'
+    deviceCode: deviceId || '',
+    deviceName: '',
+    location: '',
+    manufacturer: '',
+    warrantyPeriod: '',
+    userErrorDescription: '',
+    urgency: '',
+    status: '',
+    deviceState: '',
+    hasReportForm: false,
+    partStatus: ''
   });
 
-  const [requestedParts, setRequestedParts] = useState([
-    { id: 1, name: 'Lọc gió Piston', quantity: 2 },
-    { id: 2, name: 'Dầu máy nén', quantity: 1 }
-  ]);
+  const [requestedParts, setRequestedParts] = useState([]);
+  const [availableParts, setAvailableParts] = useState([]);
 
   // Modals state
   const [isPartModalOpen, setIsPartModalOpen] = useState(false);
@@ -66,10 +68,48 @@ export default function DeviceDetailPage() {
   const [isDamageModalOpen, setIsDamageModalOpen] = useState(false);
 
   useEffect(() => {
-    if (deviceId) {
-      console.log("Đang lấy chi tiết thiết bị cho ID:", deviceId);
-    }
+    if (!deviceId) return;
+
+    const loadDevice = async () => {
+      try {
+        const response = await deviceApi.getDeviceById(deviceId);
+        const device = response?.data || response || {};
+        setDeviceData(prev => ({
+          ...prev,
+          deviceCode: device.code || device.device_code || device.deviceCode || device.serial_number || deviceId,
+          deviceName: device.name || device.device_name || device.deviceName || device.model || '',
+          location: device.location || device.current_location || device.assigned_location || '',
+          manufacturer: device.manufacturer || device.manufacturer_name || '',
+          warrantyPeriod: device.warranty_end_date || device.warrantyEndDate || '',
+          status: device.state || device.status || '',
+          deviceState: device.state || device.status || '',
+          userErrorDescription: device.description || '',
+        }));
+      } catch (error) {
+        console.error('Không thể tải chi tiết thiết bị:', error);
+      }
+    };
+
+    loadDevice();
   }, [deviceId]);
+
+  useEffect(() => {
+    const loadAvailableParts = async () => {
+      try {
+        const response = await inventoryApi.getItems({ limit: 100 });
+        const items = Array.isArray(response) ? response : response?.data || [];
+        setAvailableParts(items.map((inventory) => {
+          const item = inventory?.item || inventory;
+          return item?.name || item?.item_name || item?.supplyName || '';
+        }).filter(Boolean));
+      } catch (error) {
+        console.error('Không thể tải danh sách linh kiện:', error);
+        setAvailableParts([]);
+      }
+    };
+
+    loadAvailableParts();
+  }, []);
 
   const handleToggleState = () => {
     const isMaintenance = deviceData.deviceState === DEVICE_STATES.UNDER_MAINTENANCE;
@@ -94,11 +134,27 @@ export default function DeviceDetailPage() {
     setIsDamageModalOpen(true);
   };
 
-  const handleSaveDamageReport = (formData) => {
-    console.log("Đã lưu biên bản hư hỏng:", formData);
-    setDeviceData(prev => ({ ...prev, hasReportForm: true }));
-    setIsDamageModalOpen(false);
-    alert("Đã lưu biên bản xác định hư hỏng thành công!");
+  const handleSaveDamageReport = async (formData) => {
+    if (!planId) {
+      alert('Không xác định được kế hoạch bảo trì của thiết bị này.');
+      return;
+    }
+
+    try {
+      await maintenanceApi.createDamageReport({
+        plan_id: Number(planId),
+        device_id: Number(deviceId),
+        description: formData.damageLevel,
+        solution: formData.solution,
+        repair_action: 'normal_repair'
+      });
+      setDeviceData(prev => ({ ...prev, hasReportForm: true }));
+      setIsDamageModalOpen(false);
+      alert('Đã gửi báo cáo hư hỏng đến quản lý.');
+    } catch (error) {
+      console.error('Không thể gửi báo cáo hư hỏng:', error);
+      alert(error?.message || 'Không thể gửi báo cáo hư hỏng.');
+    }
   };
 
   const handleConfirmParts = () => {
@@ -106,8 +162,24 @@ export default function DeviceDetailPage() {
     setDeviceData(prev => ({ ...prev, partStatus: 'Đã phê duyệt' }));
   };
 
-  const handleAcceptanceRequest = () => {
-    alert("Đã gửi yêu cầu nghiệm thu (YCNT) cho quản lý!");
+  const handleAcceptanceRequest = async () => {
+    if (!planId) {
+      alert('Không xác định được kế hoạch bảo trì của thiết bị này.');
+      return;
+    }
+
+    try {
+      await maintenanceApi.createAcceptanceReport({
+        created_by: Number(getCurrentEmployeeId()) || 1,
+        plan_id: Number(planId),
+        description: deviceData.userErrorDescription || `Đề nghị nghiệm thu thiết bị ${deviceData.deviceCode}`,
+        review: ''
+      });
+      alert('Đã gửi yêu cầu nghiệm thu đến quản lý.');
+    } catch (error) {
+      console.error('Không thể gửi yêu cầu nghiệm thu:', error);
+      alert(error?.message || 'Không thể gửi yêu cầu nghiệm thu.');
+    }
   };
 
   // Hàm gửi tin nhắn Chat AI
@@ -139,6 +211,7 @@ export default function DeviceDetailPage() {
       <TechMenuBar 
         activeNavMenu={activeNavMenu}
         setActiveNavMenu={setActiveNavMenu}
+        goToHome={goToHome}
         goToSchedule={goToSchedule}
         goToUnassignedTasks={goToUnassignedTasks}
         goToAssignedTasks={goToAssignedTasks}
@@ -294,7 +367,7 @@ export default function DeviceDetailPage() {
           setRequestedParts([...requestedParts, ...formatted]);
           setDeviceData(prev => ({ ...prev, partStatus: 'Chờ xét duyệt' }));
         }}
-        availableParts={['Lọc gió Piston', 'Cầu chì 10A', 'Dầu máy nén', 'Băng tải 3M']}
+        availableParts={availableParts}
       />
 
       <PartReturnModal

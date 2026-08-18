@@ -5,7 +5,7 @@ import ManagerSidebar from '../../components/ManagerSidebar';
 import RejectModal from './components/RejectModal';
 import Pagination from './components/Pagination';
 import ExportExcelButton from '../../components/ExportExcelButton';
-import { maintenanceApi } from '../../services/api';
+import { getCurrentEmployeeId, maintenanceApi } from '../../services/api';
 import { USER_REQUEST_TYPES } from '../../constants/userRequests';
 import './UserRequestsPage.css';
 
@@ -36,8 +36,21 @@ export default function UserRequestsPage() {
   useEffect(() => {
     const fetchRequests = async () => {
       try {
-        const response = await maintenanceApi.getRequests({ requestType: 'USER' });
-        setRequests(Array.isArray(response) ? response : response?.data || []);
+        const response = await maintenanceApi.getRepairs({ status: 'pending', limit: 100 });
+        const repairs = Array.isArray(response) ? response : response?.data || [];
+        setRequests(repairs.map((repair) => ({
+          id: repair.id || repair._id,
+          type: 'REPORT_BROKEN',
+          priority: String(repair.priority || 'normal').toUpperCase(),
+          deviceCode: repair.device_code || repair.deviceCode || `DEV-${repair.device_id || ''}`,
+          employeeName: repair.employee_name || repair.created_by_employee_id || 'N/A',
+          content: repair.description || '',
+          createdAt: repair.created_at || repair.createdAt || '',
+          estimatedCost: Number(repair.estimated_cost || 0),
+          managerName: repair.approved_by_employee_id || 'Chưa duyệt',
+          status: repair.status || 'pending',
+          deviceId: repair.device_id
+        })));
       } catch (error) {
         console.error('Failed to fetch user requests:', error);
         setRequests([]);
@@ -104,8 +117,8 @@ export default function UserRequestsPage() {
       key: 'status', 
       align: 'center',
       formatter: (val) => {
-        if (val === 'ACCEPTED') return 'Đã chấp nhận';
-        if (val === 'REJECTED') return 'Đã từ chối';
+        if (['ACCEPTED', 'success'].includes(val)) return 'Đã chấp nhận';
+        if (['REJECTED', 'fail'].includes(val)) return 'Đã từ chối';
         return 'Chờ duyệt';
       }
     }
@@ -171,11 +184,19 @@ export default function UserRequestsPage() {
 
   const toggleExpand = (id) => setExpandedId(expandedId === id ? null : id);
 
-  const handleAccept = (ticket) => {
+  const handleAccept = async (ticket) => {
     if (window.confirm(`Xác nhận CHẤP NHẬN yêu cầu từ ${ticket.employeeName}?`)) {
-      setRequests(prev => prev.map(item => 
-        item.id === ticket.id ? { ...item, status: 'ACCEPTED' } : item
-      ));
+      try {
+        await maintenanceApi.approveRepair(ticket.id, {
+          approved_by: Number(getCurrentEmployeeId()) || 1,
+          status: 'success'
+        });
+        setRequests(prev => prev.map(item => item.id === ticket.id ? { ...item, status: 'success' } : item));
+      } catch (error) {
+        console.error('Không thể duyệt yêu cầu sửa chữa:', error);
+        alert(error?.message || 'Không thể duyệt yêu cầu sửa chữa.');
+        return;
+      }
 
       const formattedDeviceCode = Array.isArray(ticket.deviceCodes) 
         ? ticket.deviceCodes[0] || ''
@@ -212,10 +233,18 @@ export default function UserRequestsPage() {
     setIsRejectOpen(true);
   };
 
-  const handleConfirmReject = (ticket, reason) => {
-    setRequests(prev => prev.map(item => 
-      item.id === ticket.id ? { ...item, status: 'REJECTED', rejectReason: reason } : item
-    ));
+  const handleConfirmReject = async (ticket, reason) => {
+    try {
+      await maintenanceApi.approveRepair(ticket.id, {
+        approved_by: Number(getCurrentEmployeeId()) || 1,
+        status: 'fail'
+      });
+      setRequests(prev => prev.map(item => item.id === ticket.id ? { ...item, status: 'fail', rejectReason: reason } : item));
+    } catch (error) {
+      console.error('Không thể từ chối yêu cầu sửa chữa:', error);
+      alert(error?.message || 'Không thể từ chối yêu cầu sửa chữa.');
+      return;
+    }
     setIsRejectOpen(false);
     setSelectedTicket(null);
   };

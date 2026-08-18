@@ -53,6 +53,11 @@ export function useDeviceReport() {
       
       const listRes = await reportService.getMaintenanceRequests();
       if (listRes.success) setRequestList(listRes.data.items);
+    } else {
+      const detail = Array.isArray(response.errors) && response.errors.length > 0
+        ? response.errors.map(error => `${error.field || 'request'}: ${error.message}`).join('\n')
+        : response.message;
+      alert(detail || 'Không thể gửi yêu cầu.');
     }
   };
 

@@ -1,4 +1,4 @@
-import { getCurrentEmployeeId, maintenanceApi, notificationApi } from '../../../services/api.js';
+import { deviceApi, getCurrentEmployeeId, maintenanceApi, notificationApi } from '../../../services/api.js';
 
 const normalizeStatus = (status) => {
   if (!status) return 'PENDING_REVIEW';
@@ -49,6 +49,31 @@ const normalizeRequestList = (payload) => {
   });
 };
 
+const resolveDeviceId = async (value) => {
+  const rawValue = String(value ?? '').trim();
+  const numericValue = Number(rawValue);
+  if (Number.isInteger(numericValue) && numericValue > 0) return numericValue;
+
+  const response = await deviceApi.getDevices({ limit: 100 });
+  const devices = Array.isArray(response) ? response : response?.data || [];
+  const normalizedValue = rawValue.toLowerCase();
+  const matchedDevice = devices.find((device) => [
+    device.id,
+    device._id,
+    device.code,
+    device.device_code,
+    device.deviceCode,
+    device.serial_number,
+    device.serialNumber
+  ].filter(Boolean).map(String).some((candidate) => candidate.toLowerCase() === normalizedValue));
+
+  const resolvedId = Number(matchedDevice?.id || matchedDevice?._id);
+  if (!Number.isInteger(resolvedId) || resolvedId <= 0) {
+    throw new Error('Không tìm thấy thiết bị với mã đã nhập');
+  }
+  return resolvedId;
+};
+
 export const reportService = {
   getUnreadNotificationCount: async () => {
     try {
@@ -66,7 +91,7 @@ export const reportService = {
 
   getMaintenanceRequests: async () => {
     try {
-      const response = await maintenanceApi.getRequests({ limit: 50 });
+      const response = await maintenanceApi.getRepairs({ limit: 50 });
       return {
         success: true,
         data: { items: normalizeRequestList(response) },
@@ -81,7 +106,7 @@ export const reportService = {
     try {
       const requestPayload = {
         created_by: Number(payload.created_by || getCurrentEmployeeId()) || 1,
-        device_id: Number(payload.deviceId || payload.device_id),
+        device_id: await resolveDeviceId(payload.deviceId || payload.device_id),
         priority: String(payload.priority || 'LOW').toLowerCase(),
         description: payload.description,
       };
@@ -94,7 +119,11 @@ export const reportService = {
       };
     } catch (error) {
       console.error('Failed to create maintenance request:', error);
-      return { success: false, message: 'Không thể gửi yêu cầu đến quản lý' };
+      return {
+        success: false,
+        message: error?.message || error?.response?.data?.message || 'Không thể gửi yêu cầu đến quản lý',
+        errors: error?.response?.data?.errors || error?.errors || []
+      };
     }
   },
 

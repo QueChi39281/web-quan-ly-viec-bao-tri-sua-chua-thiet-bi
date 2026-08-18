@@ -16,8 +16,10 @@ const MaintenanceRow = React.memo(({
   todayStr, 
   isEditing,
   availableStaffs = [], // Danh sách NV kèm trạng thái: [{ id, name, status }]
+  availableDevices = [],
   handleSelectRow, 
   handleSelectDeviceType, 
+  handleDeviceCodeChange,
   handleRowChange,
   handleSupplyChange, 
   handleAddSupplyItem, 
@@ -27,10 +29,14 @@ const MaintenanceRow = React.memo(({
 }) => {
   const [showStaffDropdown, setShowStaffDropdown] = useState(false);
   const [staffSearch, setStaffSearch] = useState('');
+  const [showDeviceSuggestions, setShowDeviceSuggestions] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 240 });
+  const [deviceSuggestionPosition, setDeviceSuggestionPosition] = useState({ top: 0, left: 0, width: 180 });
   const dropdownRef = useRef(null);
   const staffButtonRef = useRef(null);
   const staffDropdownRef = useRef(null);
+  const deviceInputRef = useRef(null);
+  const deviceSuggestionsRef = useRef(null);
 
   const selectedSupplyNames = row.supplies ? row.supplies.map(s => s.name).filter(Boolean) : [];
   const availableSupplies = safeSupplySuggestions.filter(s => !selectedSupplyNames.includes(s.name));
@@ -41,9 +47,17 @@ const MaintenanceRow = React.memo(({
       if (
         dropdownRef.current &&
         !dropdownRef.current.contains(e.target) &&
-        !staffDropdownRef.current?.contains(e.target)
+        !staffDropdownRef.current?.contains(e.target) &&
+        !deviceSuggestionsRef.current?.contains(e.target)
       ) {
         setShowStaffDropdown(false);
+      }
+      if (
+        deviceInputRef.current &&
+        !deviceInputRef.current.contains(e.target) &&
+        !deviceSuggestionsRef.current?.contains(e.target)
+      ) {
+        setShowDeviceSuggestions(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -77,6 +91,39 @@ const MaintenanceRow = React.memo(({
       window.removeEventListener('scroll', updateDropdownPosition, true);
     };
   }, [showStaffDropdown]);
+
+  useEffect(() => {
+    if (!showDeviceSuggestions) return undefined;
+
+    const updateDeviceSuggestionPosition = () => {
+      const inputRect = deviceInputRef.current?.getBoundingClientRect();
+      if (!inputRect) return;
+
+      const maxHeight = 220;
+      const openAbove = inputRect.bottom + maxHeight > window.innerHeight && inputRect.top > maxHeight;
+      setDeviceSuggestionPosition({
+        top: openAbove ? inputRect.top - maxHeight - 4 : inputRect.bottom + 4,
+        left: inputRect.left,
+        width: Math.max(180, inputRect.width)
+      });
+    };
+
+    updateDeviceSuggestionPosition();
+    window.addEventListener('resize', updateDeviceSuggestionPosition);
+    window.addEventListener('scroll', updateDeviceSuggestionPosition, true);
+    return () => {
+      window.removeEventListener('resize', updateDeviceSuggestionPosition);
+      window.removeEventListener('scroll', updateDeviceSuggestionPosition, true);
+    };
+  }, [showDeviceSuggestions, row.deviceCode]);
+
+  const deviceSuggestions = availableDevices
+    .map((device) => ({
+      device,
+      code: device.code || device.device_code || device.deviceCode || device.asset_code || device.serial_number || device.serialNumber || ''
+    }))
+    .filter(({ code }) => code.toLowerCase().includes(String(row.deviceCode || '').trim().toLowerCase()))
+    .slice(0, 50);
 
   return (
     <tr className={`${row.selected ? 'row-selected' : ''} ${isEditing ? 'row-editing' : ''}`}>
@@ -113,13 +160,46 @@ const MaintenanceRow = React.memo(({
       {/* MÃ THIẾT BỊ (1 Kế hoạch - 1 Thiết bị) */}
       <td>
         {isEditing ? (
-          <input 
-            type="text"
-            className="table-input"
-            value={row.deviceCode || ''}
-            onChange={(e) => handleRowChange(row.id, 'deviceCode', e.target.value)}
-            placeholder="Mã thiết bị..."
-          />
+          <>
+            <input 
+              type="text"
+              className="table-input"
+              autoComplete="off"
+              ref={deviceInputRef}
+              value={row.deviceCode || ''}
+              onFocus={() => setShowDeviceSuggestions(true)}
+              onChange={(e) => handleDeviceCodeChange
+                ? handleDeviceCodeChange(row.id, e.target.value)
+                : handleRowChange(row.id, 'deviceCode', e.target.value)}
+              placeholder="Mã thiết bị..."
+            />
+            {showDeviceSuggestions && createPortal(
+              <div
+                ref={deviceSuggestionsRef}
+                className="device-suggestions-dropdown"
+                style={deviceSuggestionPosition}
+              >
+                {deviceSuggestions.length > 0 ? deviceSuggestions.map(({ device, code }) => (
+                  <button
+                    type="button"
+                    className="device-suggestion-item"
+                    key={`${device.id || device._id}-${code}`}
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      handleDeviceCodeChange?.(row.id, code);
+                      setShowDeviceSuggestions(false);
+                    }}
+                  >
+                    <strong>{code}</strong>
+                    <span>{device.name || device.model || device.device_name || device.deviceName || 'Thiết bị'}</span>
+                  </button>
+                )) : (
+                  <div className="device-suggestions-empty">Không tìm thấy thiết bị</div>
+                )}
+              </div>,
+              document.body
+            )}
+          </>
         ) : (
           <span className="badge-device-single">
             {row.deviceCode || 'Chưa chọn'}

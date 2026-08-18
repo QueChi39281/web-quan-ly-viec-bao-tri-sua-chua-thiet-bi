@@ -13,7 +13,7 @@ const API = axios.create({
 const isMissingDataError = (error) => {
   const status = error?.response?.status;
   if (status === 401 || status === 403) return false;
-  if ([400, 404, 204, 500].includes(status)) return true;
+  if (status === 204) return true;
 
   const message = String(
     error?.message ||
@@ -66,7 +66,6 @@ const safeMutationCall = async (requestFn, fallback = { success: true, updated: 
   try {
     return await requestFn();
   } catch (error) {
-    if (isMissingDataError(error)) return fallback;
     throw error;
   }
 };
@@ -86,6 +85,11 @@ const extractEmployeeIdFromObject = (value) => {
     value.user?.id ??
     '';
   return direct ? String(direct) : '';
+};
+
+const toBoolean = (value) => {
+  if (typeof value === 'string') return value.toLowerCase() === 'true' || value === '1';
+  return Boolean(value);
 };
 
 export const getCurrentEmployeeId = () => {
@@ -158,11 +162,14 @@ export const normalizeNotificationForEmployee = (notification, employeeId = getC
     return current === targetEmployeeId || Number(current) === Number(targetEmployeeId);
   });
 
-  // Đã đọc nếu: có trong Cache FE OR trong receiver_info OR trực tiếp trên item
+  // Server is authoritative when it explicitly returns a read state.
   const localReadIds = getLocalReadIds(employeeId);
-  const isReadValue =
-    localReadIds.includes(idStr) ||
-    (matchedReceiver ? Boolean(matchedReceiver.is_read) : Boolean(notification.is_read ?? notification.isRead ?? (notification.read_at != null)));
+  const hasServerReadState = matchedReceiver
+    ? matchedReceiver.is_read !== undefined || matchedReceiver.read_at !== undefined
+    : notification.is_read !== undefined || notification.isRead !== undefined || notification.read_at !== undefined;
+  const isReadValue = hasServerReadState
+    ? toBoolean(matchedReceiver ? matchedReceiver.is_read : (notification.is_read ?? notification.isRead ?? notification.read_at != null))
+    : localReadIds.includes(idStr);
 
   return {
     ...notification,
@@ -245,14 +252,14 @@ API.interceptors.response.use(
       }
     }
 
-    if (isMissingDataError(error)) {
-      const method = (originalRequest?.method || 'get').toLowerCase();
+    const method = (originalRequest?.method || 'get').toLowerCase();
+    if (method === 'get' && isMissingDataError(error)) {
       const url = (originalRequest?.url || '').toLowerCase();
       const looksLikeList =
         originalRequest?.params ||
         /(users|departments|devices|maintenance-requests|inventory|notifications|reports|transactions|items|stock|dashboard|employees)/.test(url);
 
-      return Promise.resolve(method === 'get' && looksLikeList ? [] : {});
+      return Promise.resolve(looksLikeList ? [] : {});
     }
 
     return Promise.reject(error.response?.data || error);
@@ -268,7 +275,9 @@ export const authApi = {
   health: () => safeObjectCall(() => API.get('/auth/health')),
   login: (credentials) => API.post('/auth/login', credentials),
   getMe: () => safeObjectCall(() => API.get('/auth/me')),
-  logout: () => API.post('/auth/logout'),
+  logout: () => API.post('/auth/logout', {
+    refreshToken: localStorage.getItem('refreshToken') || sessionStorage.getItem('refreshToken') || undefined,
+  }),
   refreshToken: (refreshToken) => API.post('/auth/refresh', { refreshToken }),
   activateAccount: (data) => safeMutationCall(() => API.post('/auth/activate', data)),
   forgotPassword: (data) => safeMutationCall(() => API.post('/auth/forgot-password', typeof data === 'string' ? { email: data } : data)),
@@ -307,6 +316,7 @@ export const deviceApi = {
   getDeviceStateHistories: (id) => safeListCall(() => API.get(`/devices/${id}/state-histories`)),
   assignDevice: (payload) => safeMutationCall(() => API.post('/devices/assign-devices', payload)),
   getAssignRequests: (params) => safeListCall(() => API.get('/devices/assign-requests', { params })),
+  getAssignRequestsByEmployee: (employeeId, params) => safeListCall(() => API.get(`/devices/assign-requests/employees/${employeeId}`, { params })),
   getAssignRequestById: (id) => safeObjectCall(() => API.get(`/devices/assign-requests/${id}`)),
   updateAssignRequest: (id, payload) => safeMutationCall(() => API.put(`/devices/assign-requests/${id}`, payload)),
   createDevice: (deviceData) => safeMutationCall(() => API.post('/devices', deviceData)),
@@ -327,12 +337,14 @@ export const maintenanceApi = {
   getPlanById: (id) => safeObjectCall(() => API.get(`/maintenances/plans/${id}`)),
   getPlansByStatus: (status, params) => safeListCall(() => API.get(`/maintenances/plans/status/${status}`, { params })),
   getPlanAssignments: (id, params) => safeListCall(() => API.get(`/maintenances/plans/assignments/${id}`, { params })),
+  getPlanDocuments: (id, params) => safeListCall(() => API.get(`/maintenances/plans/${id}/documents`, { params })),
   createPlan: (data) => safeMutationCall(() => API.post('/maintenances/plans', data)),
   updatePlan: (id, data) => API.put(`/maintenances/plans/${id}`, data),
   startPlan: (id, data) => safeMutationCall(() => API.put(`/maintenances/plans/${id}/start`, data)),
   completePlan: (id, data) => safeMutationCall(() => API.put(`/maintenances/plans/${id}/complete`, data)),
 
   // --- REPAIR REQUESTS ---
+  getRepairs: (params) => safeListCall(() => API.get('/maintenances/repairs', { params })),
   getRepairById: (id) => safeObjectCall(() => API.get(`/maintenances/repairs/${id}`)),
   createRepair: (data) => safeMutationCall(() => API.post('/maintenances/repairs', data)),
   approveRepair: (id, data) => safeMutationCall(() => API.put(`/maintenances/repairs/${id}/approve`, data)),
@@ -347,11 +359,13 @@ export const maintenanceApi = {
   getDamageReportById: (id) => safeObjectCall(() => API.get(`/maintenances/damage-reports/${id}`)),
 
   // --- MAINTENANCE REQUESTS ---
+  getMaintenanceRequests: (params) => safeListCall(() => API.get('/maintenances/maintenance-requests', { params })),
   createMaintenanceRequest: (data) => safeMutationCall(() => API.post('/maintenances/maintenance-requests', data)),
   getMaintenanceRequestById: (id) => safeObjectCall(() => API.get(`/maintenances/maintenance-requests/${id}`)),
   approveMaintenanceRequest: (id, data) => safeMutationCall(() => API.put(`/maintenances/maintenance-requests/${id}/approve`, data)),
 
   // --- ACCEPTANCE REPORTS ---
+  getAcceptanceReports: (params) => safeListCall(() => API.get('/maintenances/acceptance-reports', { params })),
   createAcceptanceReport: (data) => safeMutationCall(() => API.post('/maintenances/acceptance-reports', data)),
   getAcceptanceReportById: (id) => safeObjectCall(() => API.get(`/maintenances/acceptance-reports/${id}`)),
   approveAcceptanceReport: (id, data) => safeMutationCall(() => API.put(`/maintenances/acceptance-reports/${id}/approve`, data)),
@@ -438,7 +452,10 @@ export const notificationApi = {
 
   getEmployeeNotifications: (employeeId) =>
     safeListCall(() =>
-      API.get(`/notifications/employees/${employeeId || getCurrentEmployeeId()}`)
+      API.get(`/notifications/employees/${employeeId || getCurrentEmployeeId()}`, {
+        params: { _t: Date.now() },
+        headers: { 'Cache-Control': 'no-cache' },
+      })
     ),
 
   getNotificationById: (id) =>
@@ -449,16 +466,13 @@ export const notificationApi = {
     const employeeId = customEmployeeId || getCurrentEmployeeId();
     const targetId = String(id);
 
-    // 1. Ghi nhận ngay vào cache FE
-    saveLocalReadIds([targetId], employeeId);
-
     const payload = { is_read: true };
-    if (employeeId) {
-      payload.employee_id = employeeId;
-    }
+    if (employeeId) payload.employee_id = Number(employeeId) || employeeId;
 
     console.log(`[API] PUT /notifications/${targetId}`, payload);
-    return await API.put(`/notifications/${targetId}`, payload);
+    const response = await API.put(`/notifications/${targetId}`, payload);
+    saveLocalReadIds([targetId], employeeId);
+    return response;
   },
 
   // Đánh dấu tất cả thông báo là đã đọc
@@ -469,27 +483,11 @@ export const notificationApi = {
       return { success: false, message: 'Missing employee ID' };
     }
 
-    // 1. Thử gọi API Batch Update của Backend
-    try {
-      console.log(`[API] Batch mark all as read for employee ${employeeId}`);
-      const res = await API.put(`/notifications/read-all`, {
-        employee_id: employeeId,
-        is_read: true,
-      });
-
-      // Lưu tất cả ID hiện tại vào FE Cache
-      const response = await API.get(`/notifications/employees/${employeeId}`);
-      const rawItems = normalizeResponseData(response, []);
-      const allIds = rawItems.map((item) => String(item.id || item._id)).filter(Boolean);
-      saveLocalReadIds(allIds, employeeId);
-
-      return res;
-    } catch (batchError) {
-      console.warn('[API] Batch update failed/not supported, using fallback loop:', batchError);
-    }
-
-    // 2. Fallback: Lặp từng ID nếu Backend chưa hỗ trợ API batch
-    const response = await API.get(`/notifications/employees/${employeeId}`);
+    // The documented API has no batch endpoint, so update each notification.
+    const response = await API.get(`/notifications/employees/${employeeId}`, {
+      params: { _t: Date.now() },
+      headers: { 'Cache-Control': 'no-cache' },
+    });
     const rawItems = normalizeResponseData(response, []);
     const normalized = normalizeNotificationList(rawItems, employeeId);
 
@@ -497,9 +495,6 @@ export const notificationApi = {
       .filter((item) => !item.is_read)
       .map((item) => item.id)
       .filter(Boolean);
-
-    // Lưu tất cả ID chưa đọc vào cache FE
-    saveLocalReadIds(unreadIds, employeeId);
 
     if (!unreadIds.length) {
       return { success: true, updated: 0 };
@@ -509,12 +504,16 @@ export const notificationApi = {
       unreadIds.map((id) =>
         API.put(`/notifications/${id}`, {
           is_read: true,
-          employee_id: employeeId,
+          employee_id: Number(employeeId) || employeeId,
         })
       )
     );
 
     const successfulCount = results.filter((res) => res.status === 'fulfilled').length;
+    const successfulIds = results
+      .map((result, index) => result.status === 'fulfilled' ? unreadIds[index] : null)
+      .filter(Boolean);
+    saveLocalReadIds(successfulIds, employeeId);
 
     return {
       success: true,
@@ -531,7 +530,10 @@ export const notificationApi = {
     if (!employeeId) return 0;
 
     try {
-      const response = await API.get(`/notifications/employees/${employeeId}`);
+      const response = await API.get(`/notifications/employees/${employeeId}`, {
+        params: { _t: Date.now() },
+        headers: { 'Cache-Control': 'no-cache' },
+      });
       const rawItems = normalizeResponseData(response, []);
       const items = normalizeNotificationList(rawItems, employeeId);
       return Array.isArray(items) ? items.filter((item) => !item.is_read && !item.isRead).length : 0;

@@ -41,6 +41,7 @@ export default function TechnicianDashboardPage() {
     goToAssignedTasks,
     goToDeviceDetail,
     handleAcceptTask,
+    goToHome,
   } = useTechnicianDashboard();
 
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -242,6 +243,7 @@ export default function TechnicianDashboardPage() {
       <TechMenuBar 
         activeNavMenu={activeNavMenu}
         setActiveNavMenu={setActiveNavMenu}
+        goToHome={goToHome}
         goToSchedule={goToSchedule}
         goToUnassignedTasks={goToUnassignedTasks}
         goToAssignedTasks={goToAssignedTasks}
@@ -282,7 +284,7 @@ export default function TechnicianDashboardPage() {
                         <td>
                           <span
                             className="tech-device-link font-semibold text-blue-600 cursor-pointer hover:underline"
-                            onClick={() => goToDeviceDetail(item.deviceId || item.deviceCode)}
+                            onClick={() => goToDeviceDetail(item.deviceId || item.deviceCode, item.id)}
                           >
                             {item.deviceId || item.deviceCode || 'N/A'}
                           </span>
@@ -428,7 +430,7 @@ export default function TechnicianDashboardPage() {
                       <td>
                         <span 
                           className="tech-device-link font-semibold text-blue-600 cursor-pointer hover:underline" 
-                          onClick={() => goToDeviceDetail(item.deviceId)}
+                          onClick={() => goToDeviceDetail(item.deviceId, item.id)}
                         >
                           {item.deviceId}
                         </span>
@@ -493,7 +495,7 @@ export default function TechnicianDashboardPage() {
                       <td>
                         <span 
                           className="tech-device-link font-semibold text-blue-600 cursor-pointer hover:underline" 
-                          onClick={() => goToDeviceDetail(item.deviceId)}
+                          onClick={() => goToDeviceDetail(item.deviceId, item.id)}
                         >
                           {item.deviceId}
                         </span>
@@ -555,7 +557,7 @@ export default function TechnicianDashboardPage() {
                           className="task-device-id"
                           onClick={() => {
                             setShowTaskModal(false);
-                            goToDeviceDetail(task.deviceId || task.deviceCode);
+                            goToDeviceDetail(task.deviceId || task.deviceCode, task.id);
                           }}
                         >
                           {task.deviceId || task.deviceCode}

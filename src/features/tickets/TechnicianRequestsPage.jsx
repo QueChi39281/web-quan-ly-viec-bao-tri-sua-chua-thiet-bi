@@ -6,7 +6,7 @@ import RejectModal from './components/RejectModal';
 import TechnicianRequestsTable from './components/TechnicianRequestsTable';
 import Pagination from './components/Pagination';
 import ExportExcelButton from '../../components/ExportExcelButton';
-import { maintenanceApi } from '../../services/api';
+import { getCurrentEmployeeId, maintenanceApi } from '../../services/api';
 import { REQUEST_TYPES } from '../../constants/technicianRequests';
 import './TechnicianRequestsPage.css';
 
@@ -27,8 +27,19 @@ export default function TechnicianRequestsPage() {
   useEffect(() => {
     const fetchRequests = async () => {
       try {
-        const response = await maintenanceApi.getRequests({ requestType: 'TECHNICIAN' });
-        setRequests(Array.isArray(response) ? response : response?.data || []);
+        const response = await maintenanceApi.getMaintenanceRequests({ status: 'pending', limit: 100 });
+        const requestsData = Array.isArray(response) ? response : response?.data || [];
+        setRequests(requestsData.map((request) => ({
+          id: request.id || request._id,
+          type: request.request_type || 'MAINTENANCE_REQUEST',
+          employeeName: request.employee_name || request.created_by_employee_id || 'N/A',
+          deviceCode: request.device_code || (request.plan_id ? `PLAN-${request.plan_id}` : 'N/A'),
+          content: request.reason || '',
+          estimatedCost: Number(request.estimated_cost || 0),
+          createdAt: request.created_at || request.createdAt || '',
+          status: request.status || 'pending',
+          planId: request.plan_id
+        })));
       } catch (error) {
         console.error('Failed to fetch technician requests:', error);
         setRequests([]);
@@ -74,8 +85,8 @@ export default function TechnicianRequestsPage() {
       key: 'status', 
       align: 'center',
       formatter: (val) => {
-        if (val === 'ACCEPTED') return 'Đã chấp nhận';
-        if (val === 'REJECTED') return 'Từ chối';
+        if (['ACCEPTED', 'success'].includes(val)) return 'Đã chấp nhận';
+        if (['REJECTED', 'fail'].includes(val)) return 'Từ chối';
         return 'Chờ duyệt';
       }
     }
@@ -127,9 +138,19 @@ export default function TechnicianRequestsPage() {
 
   const toggleExpand = (id) => setExpandedId(expandedId === id ? null : id);
 
-  const handleAccept = (ticket) => {
+  const handleAccept = async (ticket) => {
     if (window.confirm(`Xác nhận CHẤP NHẬN yêu cầu từ ${ticket.employeeName}?`)) {
-      setRequests(prev => prev.map(item => item.id === ticket.id ? { ...item, status: 'ACCEPTED' } : item));
+      try {
+        await maintenanceApi.approveMaintenanceRequest(ticket.id, {
+          approved_by: Number(getCurrentEmployeeId()) || 1,
+          status: 'success'
+        });
+        setRequests(prev => prev.map(item => item.id === ticket.id ? { ...item, status: 'success' } : item));
+      } catch (error) {
+        console.error('Không thể duyệt yêu cầu bảo trì:', error);
+        alert(error?.message || 'Không thể duyệt yêu cầu bảo trì.');
+        return;
+      }
       
       const formattedDeviceCode = Array.isArray(ticket.deviceCodes) 
         ? ticket.deviceCodes[0] || ''
@@ -166,8 +187,18 @@ export default function TechnicianRequestsPage() {
     setIsRejectOpen(true);
   };
 
-  const handleConfirmReject = (ticket, reason) => {
-    setRequests(prev => prev.map(item => item.id === ticket.id ? { ...item, status: 'REJECTED', rejectReason: reason } : item));
+  const handleConfirmReject = async (ticket, reason) => {
+    try {
+      await maintenanceApi.approveMaintenanceRequest(ticket.id, {
+        approved_by: Number(getCurrentEmployeeId()) || 1,
+        status: 'fail'
+      });
+      setRequests(prev => prev.map(item => item.id === ticket.id ? { ...item, status: 'fail', rejectReason: reason } : item));
+    } catch (error) {
+      console.error('Không thể từ chối yêu cầu bảo trì:', error);
+      alert(error?.message || 'Không thể từ chối yêu cầu bảo trì.');
+      return;
+    }
     setIsRejectOpen(false);
     setSelectedTicket(null);
   };

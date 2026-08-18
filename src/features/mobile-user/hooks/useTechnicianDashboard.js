@@ -1,22 +1,23 @@
-import { useState, useMemo, useEffect } from 'react';
-import { deviceApi, maintenanceApi } from '../../../services/api';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { deviceApi, getCurrentEmployeeId, maintenanceApi, notificationApi } from '../../../services/api';
 
-// Map Mock Data thiết bị thành cấu trúc Task của kỹ thuật viên
-const formatDeviceToTask = (device, overrideStatus = null) => ({
-  id: device.id,
-  deviceId: device.deviceId,
-  deviceName: device.deviceName,
-  category: device.category,
-  specifications: device.specifications,
-  department: device.department,
-  assignedTo: device.assignedTo,
-  status: overrideStatus || device.status,
-  priority: device.priority || 'NORMAL',
-  createdAt: device.installedDate ? `${device.installedDate}T08:00:00` : new Date().toISOString(),
-  location: device.location,
-  notes: device.notes,
-  price: device.price,
-  serialNumber: device.serialNumber
+// Map API device/plan data into the technician task shape.
+const formatPlanToTask = (plan, overrideStatus = null) => ({
+  id: plan.id || plan._id,
+  deviceId: String(plan.device_id || ''),
+  deviceName: plan.device_name || plan.device?.name || `Thiết bị #${plan.device_id || ''}`,
+  category: plan.plan_type || '',
+  specifications: plan.description || '',
+  department: plan.department_name || '',
+  assignedTo: plan.plan_assignments || [],
+  status: overrideStatus || (plan.actual_end_at ? 'Hoàn thành' : plan.actual_start_at ? 'Đang sửa chữa' : 'Chưa phân công'),
+  priority: String(plan.priority || 'NORMAL').toUpperCase(),
+  createdAt: plan.created_at || plan.planned_start_at || new Date().toISOString(),
+  location: plan.location || '',
+  notes: plan.description || '',
+  price: Number(plan.estimated_cost || 0),
+  serialNumber: plan.device?.serial_number || ''
 });
 
 // Initialize empty task lists (will be populated by API)
@@ -25,7 +26,8 @@ const INITIAL_UNASSIGNED_TASKS = [];
 const INITIAL_ASSIGNED_TASKS = [];
 
 export const useTechnicianDashboard = () => {
-  const [unreadCount] = useState(3);
+  const navigate = useNavigate();
+  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [activeNavMenu, setActiveNavMenu] = useState('home'); // 'home' | 'schedule' | 'unassigned' | 'assigned'
 
@@ -34,33 +36,48 @@ export const useTechnicianDashboard = () => {
   const [unassignedTasks, setUnassignedTasks] = useState(INITIAL_UNASSIGNED_TASKS);
   const [assignedTasks, setAssignedTasks] = useState(INITIAL_ASSIGNED_TASKS);
 
-  // Fetch tasks from API on mount
-  useEffect(() => {
-    const fetchTasks = async () => {
-      try {
-        setLoading(true);
-        // Fetch unassigned tasks
-        const unassignedRes = await maintenanceApi.getRequests({ status: 'UNASSIGNED' });
-        const unassignedData = (Array.isArray(unassignedRes) ? unassignedRes : unassignedRes.data || []).map(d => formatDeviceToTask(d, 'Chưa phân công'));
-        setUnassignedTasks(unassignedData);
+  const loadDashboardData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const employeeId = getCurrentEmployeeId();
+      const [assignedResponse, unassignedResponse, devicesResponse, unreadResponse] = await Promise.all([
+        employeeId ? maintenanceApi.getPlanAssignments(employeeId) : Promise.resolve([]),
+        maintenanceApi.getPlansByStatus('not_started'),
+        deviceApi.getDevices({ limit: 100 }),
+        notificationApi.getUnreadCount()
+      ]);
+      const assigned = Array.isArray(assignedResponse) ? assignedResponse : assignedResponse?.data || [];
+      const unassigned = Array.isArray(unassignedResponse) ? unassignedResponse : unassignedResponse?.data || [];
+      const devices = Array.isArray(devicesResponse) ? devicesResponse : devicesResponse?.data || [];
+      const devicesById = new Map(devices.map(device => [String(device.id || device._id), device]));
+      const enrichPlan = (plan) => ({
+        ...plan,
+        device: devicesById.get(String(plan.device_id)),
+        device_name: devicesById.get(String(plan.device_id))?.name || devicesById.get(String(plan.device_id))?.model || ''
+      });
+      const assignedPlans = assigned.map(enrichPlan);
+      const assignedIds = new Set(assignedPlans.map(plan => String(plan.id || plan._id)));
+      const unassignedPlans = unassigned
+        .filter(plan => !assignedIds.has(String(plan.id || plan._id)))
+        .map(enrichPlan);
+      const today = new Date().toISOString().slice(0, 10);
+      const todayPlans = assignedPlans.filter(plan => String(plan.planned_start_at || '').startsWith(today));
 
-        // Fetch assigned tasks
-        const assignedRes = await maintenanceApi.getRequests({ status: 'IN_PROGRESS' });
-        const assignedData = (Array.isArray(assignedRes) ? assignedRes : assignedRes.data || []).slice(0, 2).map(d => formatDeviceToTask(d, 'Đang sửa chữa'));
-        setAssignedTasks(assignedData);
-
-        // Fetch today's high priority tasks
-        const todayRes = await maintenanceApi.getRequests({ priority: 'HIGH' });
-        const todayData = (Array.isArray(todayRes) ? todayRes : todayRes.data || []).slice(0, 3).map(d => formatDeviceToTask(d, 'Chờ xử lý'));
-        setTodayTasks(todayData);
-      } catch (error) {
-        console.error('Failed to fetch technician tasks:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchTasks();
+      setUnassignedTasks(unassignedPlans.map(plan => formatPlanToTask(plan, 'Chưa phân công')));
+      setAssignedTasks(assignedPlans.map(plan => formatPlanToTask(plan, 'Đang sửa chữa')));
+      setTodayTasks((todayPlans.length ? todayPlans : assignedPlans).slice(0, 3).map(plan => formatPlanToTask(plan)));
+      setUnreadCount(Number(unreadResponse) || 0);
+    } catch (error) {
+      console.error('Failed to fetch technician dashboard data:', error);
+      setUnreadCount(0);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
 
   // Bộ lọc & Sắp xếp cho bảng
   const [searchTerm, setSearchTerm] = useState('');
@@ -81,7 +98,9 @@ export const useTechnicianDashboard = () => {
   const goToSchedule = () => { setActiveNavMenu('schedule'); };
   const goToUnassignedTasks = () => { setActiveNavMenu('unassigned'); setCurrentPage(1); };
   const goToAssignedTasks = () => { setActiveNavMenu('assigned'); setCurrentPage(1); };
-  const goToDeviceDetail = (id) => alert(`Chuyển tới chi tiết thiết bị mã: ${id}`);
+  const goToDeviceDetail = (id, planId) => {
+    if (id) navigate(`/technician/device-detail/${id}`, { state: { planId } });
+  };
 
   // Hàm dùng chung cho Lọc & Sắp xếp
   const filterAndSortTasks = (taskList) => {
@@ -89,11 +108,11 @@ export const useTechnicianDashboard = () => {
       .filter((item) => {
         const term = searchTerm.toLowerCase();
         const matchesSearch =
-          item.deviceId.toLowerCase().includes(term) ||
-          item.location.toLowerCase().includes(term) ||
-          (item.deviceName && item.deviceName.toLowerCase().includes(term)) ||
-          (item.department && item.department.toLowerCase().includes(term)) ||
-          (item.category && item.category.toLowerCase().includes(term));
+          String(item.deviceId || '').toLowerCase().includes(term) ||
+          String(item.location || '').toLowerCase().includes(term) ||
+          String(item.deviceName || '').toLowerCase().includes(term) ||
+          String(item.department || '').toLowerCase().includes(term) ||
+          String(item.category || '').toLowerCase().includes(term);
 
         const matchesPriority = priorityFilter === 'ALL' || item.priority === priorityFilter;
         return matchesSearch && matchesPriority;
@@ -137,20 +156,16 @@ export const useTechnicianDashboard = () => {
   }, [filteredAssignedTasks, currentPage]);
 
   // Xử lý Nhận công việc
-  const handleAcceptTask = (task) => {
-    // 1. Xóa khỏi Unassigned
-    setUnassignedTasks((prev) => prev.filter((t) => t.id !== task.id));
-
-    // 2. Thêm vào Assigned
-    const newTask = {
-      ...task,
-      status: 'Đã tiếp nhận',
-      acceptedAt: new Date().toISOString()
-    };
-    setAssignedTasks((prev) => [newTask, ...prev]);
-
-    alert(`Đã nhận thành công thiết bị: ${task.deviceName} (${task.deviceId})`);
-    goToAssignedTasks(); // Chuyển sang danh sách đã nhận
+  const handleAcceptTask = async (task) => {
+    try {
+      await maintenanceApi.startPlan(task.id);
+      await loadDashboardData();
+      alert(`Đã nhận thành công thiết bị: ${task.deviceName} (${task.deviceId})`);
+      goToAssignedTasks();
+    } catch (error) {
+      console.error('Không thể nhận kế hoạch bảo trì:', error);
+      alert(error?.message || 'Không thể nhận công việc');
+    }
   };
 
   const handlePageChange = (page) => {
