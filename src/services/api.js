@@ -328,7 +328,7 @@ export const maintenanceApi = {
   getPlansByStatus: (status, params) => safeListCall(() => API.get(`/maintenances/plans/status/${status}`, { params })),
   getPlanAssignments: (id, params) => safeListCall(() => API.get(`/maintenances/plans/assignments/${id}`, { params })),
   createPlan: (data) => safeMutationCall(() => API.post('/maintenances/plans', data)),
-  updatePlan: (id, data) => safeMutationCall(() => API.put(`/maintenances/plans/${id}`, data)),
+  updatePlan: (id, data) => API.put(`/maintenances/plans/${id}`, data),
   startPlan: (id, data) => safeMutationCall(() => API.put(`/maintenances/plans/${id}/start`, data)),
   completePlan: (id, data) => safeMutationCall(() => API.put(`/maintenances/plans/${id}/complete`, data)),
 
@@ -352,22 +352,36 @@ export const maintenanceApi = {
   approveMaintenanceRequest: (id, data) => safeMutationCall(() => API.put(`/maintenances/maintenance-requests/${id}/approve`, data)),
 
   // --- ACCEPTANCE REPORTS ---
-  getAcceptanceReports: (params) => safeListCall(() => API.get('/maintenances/acceptance-reports', { params })),
   createAcceptanceReport: (data) => safeMutationCall(() => API.post('/maintenances/acceptance-reports', data)),
   getAcceptanceReportById: (id) => safeObjectCall(() => API.get(`/maintenances/acceptance-reports/${id}`)),
   approveAcceptanceReport: (id, data) => safeMutationCall(() => API.put(`/maintenances/acceptance-reports/${id}/approve`, data)),
 
-  // --- LEGACY COMPATIBILITY (for backward compatibility) ---
-  getRequests: (params) => safeListCall(() => API.get('/maintenance-requests', { params })),
-  getRequestById: (id) => safeObjectCall(() => API.get(`/maintenance-requests/${id}`)),
-  createRequest: (data) => safeMutationCall(() => API.post('/maintenance-requests', data)),
-  approveRequest: (id, data) => safeMutationCall(() => API.patch(`/maintenance-requests/${id}/approve`, data)),
-  assignTechnician: (id, data) => safeMutationCall(() => API.patch(`/maintenance-requests/${id}/assign`, data)),
-  startRepair: (id) => safeMutationCall(() => API.patch(`/maintenance-requests/${id}/start`)),
-  completeRepair: (id, data) => safeMutationCall(() => API.patch(`/maintenance-requests/${id}/complete`, data)),
-  approveCompletion: (id, data) => safeMutationCall(() => API.patch(`/maintenance-requests/${id}/approve-completion`, data)),
-  closeRequest: (id) => safeMutationCall(() => API.patch(`/maintenance-requests/${id}/close`)),
-  updateStatus: (id, status) => safeMutationCall(() => API.patch(`/maintenance-requests/${id}/status`, { status })),
+  getRequests: (params = {}) => {
+    const status = String(params.status || '').toLowerCase();
+    if (status === 'completed') return maintenanceApi.getPlansByStatus('completed', params);
+    return maintenanceApi.getPlans(params);
+  },
+  getRequestById: (id) => maintenanceApi.getPlanById(id),
+  createRequest: (data) => maintenanceApi.createRepair(data),
+  approveRequest: (id, data) => maintenanceApi.approveRepair(id, data),
+  assignTechnician: (id, data) => maintenanceApi.updatePlan(id, data),
+  startRepair: (id) => maintenanceApi.startPlan(id),
+  completeRepair: (id) => maintenanceApi.completePlan(id),
+  approveCompletion: (id, data = {}) => maintenanceApi.approveAcceptanceReport(id, {
+    approved_by: data.approved_by,
+    status: data.status || (data.decision === 'APPROVED' ? 'success' : 'fail'),
+  }),
+  closeRequest: (id) => maintenanceApi.completePlan(id),
+  updateStatus: (id, status) => {
+    const normalizedStatus = String(status || '').toLowerCase();
+    if (normalizedStatus === 'ongoing' || normalizedStatus === 'in_progress') {
+      return maintenanceApi.startPlan(id);
+    }
+    if (normalizedStatus === 'completed' || normalizedStatus === 'success') {
+      return maintenanceApi.completePlan(id);
+    }
+    return maintenanceApi.updatePlan(id, { status });
+  },
 };
 
 // --- 📦 INVENTORY SERVICE ---

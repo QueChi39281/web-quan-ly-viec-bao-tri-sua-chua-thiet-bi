@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   SUPPLY_SUGGESTIONS, 
   DEVICE_OPTIONS 
@@ -25,7 +26,11 @@ const MaintenanceRow = React.memo(({
   onToggleStaff // Function xử lý chọn/bỏ chọn NV: (rowId, staffObj) => void
 }) => {
   const [showStaffDropdown, setShowStaffDropdown] = useState(false);
+  const [staffSearch, setStaffSearch] = useState('');
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 240 });
   const dropdownRef = useRef(null);
+  const staffButtonRef = useRef(null);
+  const staffDropdownRef = useRef(null);
 
   const selectedSupplyNames = row.supplies ? row.supplies.map(s => s.name).filter(Boolean) : [];
   const availableSupplies = safeSupplySuggestions.filter(s => !selectedSupplyNames.includes(s.name));
@@ -33,13 +38,45 @@ const MaintenanceRow = React.memo(({
   // Đóng dropdown chọn nhân viên khi click ra ngoài
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target) &&
+        !staffDropdownRef.current?.contains(e.target)
+      ) {
         setShowStaffDropdown(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (!showStaffDropdown) return undefined;
+
+    const updateDropdownPosition = () => {
+      const buttonRect = staffButtonRef.current?.getBoundingClientRect();
+      if (!buttonRect) return;
+
+      const dropdownHeight = 280;
+      const openAbove = buttonRect.bottom + dropdownHeight > window.innerHeight && buttonRect.top > dropdownHeight;
+      const top = openAbove ? buttonRect.top - dropdownHeight - 4 : buttonRect.bottom + 4;
+      const left = Math.min(buttonRect.left, Math.max(8, window.innerWidth - 268));
+
+      setDropdownPosition({
+        top: Math.max(8, top),
+        left,
+        width: Math.max(240, buttonRect.width)
+      });
+    };
+
+    updateDropdownPosition();
+    window.addEventListener('resize', updateDropdownPosition);
+    window.addEventListener('scroll', updateDropdownPosition, true);
+    return () => {
+      window.removeEventListener('resize', updateDropdownPosition);
+      window.removeEventListener('scroll', updateDropdownPosition, true);
+    };
+  }, [showStaffDropdown]);
 
   return (
     <tr className={`${row.selected ? 'row-selected' : ''} ${isEditing ? 'row-editing' : ''}`}>
@@ -228,21 +265,44 @@ const MaintenanceRow = React.memo(({
               <button 
                 type="button" 
                 className="btn-toggle-staff-select"
-                onClick={() => setShowStaffDropdown(!showStaffDropdown)}
+                ref={staffButtonRef}
+                onClick={() => {
+                  setShowStaffDropdown(prev => !prev);
+                  setStaffSearch('');
+                }}
               >
                 ⚙️ Chọn nhân viên ({row.assignedStaffs?.length || 0})
               </button>
 
-              {showStaffDropdown && (
-                <div className="staff-selector-dropdown">
+              {showStaffDropdown && createPortal(
+                <div
+                  ref={staffDropdownRef}
+                  className="staff-selector-dropdown"
+                  style={dropdownPosition}
+                >
                   <div className="dropdown-header">Chọn NV tham gia:</div>
+                  <input
+                    type="search"
+                    className="staff-search-input"
+                    value={staffSearch}
+                    onChange={(event) => setStaffSearch(event.target.value)}
+                    placeholder="Gõ tên hoặc mã nhân viên..."
+                    aria-label="Tìm nhân viên"
+                  />
                   <div className="dropdown-list">
-                    {availableStaffs.map((staff) => {
+                    {availableStaffs
+                      .filter((staff) => {
+                        const query = staffSearch.trim().toLowerCase();
+                        if (!query) return true;
+                        return `${staff.name || ''} ${staff.id || staff.staffId || ''}`.toLowerCase().includes(query);
+                      })
+                      .map((staff) => {
+                      const staffId = String(staff.id || staff.staffId || '');
                       const isChecked = row.assignedStaffs?.some(
-                        (s) => (s.staffId || s.id) === (staff.id || staff.staffId)
+                        (s) => String(s.staffId || s.id || '') === staffId
                       );
                       return (
-                        <label key={staff.id || staff.staffId} className="staff-checkbox-item">
+                        <label key={staffId} className="staff-checkbox-item">
                           <input 
                             type="checkbox" 
                             checked={!!isChecked}
@@ -255,8 +315,12 @@ const MaintenanceRow = React.memo(({
                         </label>
                       );
                     })}
+                    {availableStaffs.length > 0 && !availableStaffs.some((staff) => `${staff.name || ''} ${staff.id || staff.staffId || ''}`.toLowerCase().includes(staffSearch.trim().toLowerCase())) && (
+                      <div className="staff-empty-result">Không tìm thấy nhân viên</div>
+                    )}
                   </div>
-                </div>
+                </div>,
+                document.body
               )}
             </div>
           )}

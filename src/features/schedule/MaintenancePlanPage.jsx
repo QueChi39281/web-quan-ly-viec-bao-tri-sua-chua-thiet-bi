@@ -33,10 +33,56 @@ const DEFAULT_FILTER = {
   toDate: ''
 };
 
+const getDeviceName = (device) => device?.name || device?.model || device?.device_name || device?.deviceName || device?.device_type || device?.category?.name || device?.category_name || '';
+const getDeviceCode = (device) => device?.code || device?.device_code || device?.deviceCode || device?.asset_code || device?.serial_number || device?.serialNumber || '';
+const getEmployeeId = (employee) => employee?.employee_id ?? employee?.employeeId ?? employee?.id ?? employee?._id ?? '';
+const getEmployeeName = (employee) => employee?.full_name || employee?.fullName || employee?.employee_name || employee?.employee?.full_name || employee?.employee?.name || employee?.name || employee?.username || '';
+const normalizeEmployeeId = (value) => {
+  const normalized = String(value ?? '').replace(/^EMP-/, '');
+  const numericId = Number(normalized);
+  return normalized && Number.isFinite(numericId) ? numericId : normalized;
+};
+
+const mapPlanToRow = (item, devicesById, employeesById) => {
+  const device = devicesById.get(String(item.device_id));
+  const deviceName = getDeviceName(device);
+  const deviceCode = getDeviceCode(device) || (item.device_id ? `DEV-${item.device_id}` : 'N/A');
+
+  return {
+    id: item.id || item._id,
+    selected: false,
+    deviceId: item.device_id || '',
+    deviceType: deviceName || 'Chưa xác định',
+    deviceCode,
+    status: item.actual_end_at ? 'Hoàn thành' : item.actual_start_at ? 'Đang thực hiện' : 'Chờ thực hiện',
+    actionType: item.plan_type === 'repair' ? 'Sửa chữa' : 'Bảo trì',
+    content: item.description || '',
+    supplies: [],
+    cost: item.estimated_cost == null ? 0 : Number(item.estimated_cost),
+    assignedStaffs: Array.isArray(item.plan_assignments)
+      ? item.plan_assignments.map(assignment => {
+        const employee = employeesById.get(String(assignment.employee_id));
+        return {
+          id: assignment.employee_id,
+          staffId: assignment.employee_id,
+          name: getEmployeeName(employee) || `Nhân viên #${assignment.employee_id}`,
+          status: assignment.availability_status || 'available'
+        };
+      })
+      : [],
+    startDate: item.planned_start_at ? item.planned_start_at.split('T')[0] : '',
+    endDate: item.planned_end_at ? item.planned_end_at.split('T')[0] : '',
+    actualStartDate: item.actual_start_at ? item.actual_start_at.split('T')[0] : '',
+    actualEndDate: item.actual_end_at ? item.actual_end_at.split('T')[0] : '',
+    planId: item.id,
+    autoInterval: null
+  };
+};
+
 export default function MaintenancePlanPage() {
   const location = useLocation();
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
-  const [availableStaffs] = useState(INITIAL_STAFF_LIST);
+  const [availableStaffs, setAvailableStaffs] = useState(INITIAL_STAFF_LIST);
 
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -47,31 +93,25 @@ export default function MaintenancePlanPage() {
       try {
         setLoading(true);
         // Lấy danh sách kế hoạch bảo trì từ API thật
-        const response = await maintenanceApi.getPlans({ limit: 100 });
-        const plansData = Array.isArray(response) ? response : response?.data || [];
-        
-        // Map dữ liệu từ API sang cấu trúc component
-        const plans = plansData.map(item => ({
-          id: item.id || item._id,
-          selected: false,
-          deviceType: item.plan_type === 'repair' ? 'Sửa chữa' : 'Bảo trì',
-          deviceCode: item.device_id ? `DEV-${item.device_id}` : 'N/A',
-          status: item.actual_end_at ? 'Hoàn thành' : item.actual_start_at ? 'Đang thực hiện' : 'Chờ thực hiện',
-          actionType: item.plan_type === 'repair' ? 'Sửa chữa' : 'Bảo trì',
-          content: item.description || '',
-          supplies: [],
-          cost: item.estimated_cost ? Number(item.estimated_cost) : 0,
-          assignedStaffs: Array.isArray(item.plan_assignments) 
-            ? item.plan_assignments.map(a => ({ id: a.employee_id, name: `EMP-${a.employee_id}`, status: a.availability_status || 'available' }))
-            : [],
-          startDate: item.planned_start_at ? item.planned_start_at.split('T')[0] : '',
-          endDate: item.planned_end_at ? item.planned_end_at.split('T')[0] : '',
-          actualStartDate: item.actual_start_at ? item.actual_start_at.split('T')[0] : '',
-          actualEndDate: item.actual_end_at ? item.actual_end_at.split('T')[0] : '',
-          planId: item.id,
-          autoInterval: null
-        }));
-        setRows(plans);
+        const [plansResponse, devicesResponse, employeesResponse] = await Promise.all([
+          maintenanceApi.getPlans({ limit: 100 }),
+          deviceApi.getDevices({ limit: 100 }),
+          userApi.getUsers({ limit: 100 })
+        ]);
+        const plansData = Array.isArray(plansResponse) ? plansResponse : plansResponse?.data || [];
+        const devices = Array.isArray(devicesResponse) ? devicesResponse : devicesResponse?.data || [];
+        const employees = Array.isArray(employeesResponse) ? employeesResponse : employeesResponse?.data || [];
+        const devicesById = new Map(devices.map(device => [String(device.id || device._id), device]));
+        const employeesById = new Map(employees.map(employee => [String(getEmployeeId(employee)), employee]));
+        if (employees.length > 0) {
+          setAvailableStaffs(employees.map(employee => ({
+            id: getEmployeeId(employee),
+            staffId: getEmployeeId(employee),
+            name: getEmployeeName(employee) || 'Nhân viên',
+            status: employee.availability_status || 'Sẵn sàng'
+          })));
+        }
+        setRows(plansData.map(item => mapPlanToRow(item, devicesById, employeesById)));
       } catch (error) {
         console.error('Failed to fetch maintenance plans:', error);
         setRows([]);
@@ -495,11 +535,11 @@ export default function MaintenancePlanPage() {
       if (r.id === rowId) {
         const currentStaffs = r.assignedStaffs || [];
         const exists = currentStaffs.some(
-          s => (s.staffId || s.id) === (staffObj.id || staffObj.staffId)
+          s => String(s.staffId || s.id || '') === String(staffObj.id || staffObj.staffId || '')
         );
 
         const updatedStaffs = exists
-          ? currentStaffs.filter(s => (s.staffId || s.id) !== (staffObj.id || staffObj.staffId))
+          ? currentStaffs.filter(s => String(s.staffId || s.id || '') !== String(staffObj.id || staffObj.staffId || ''))
           : [...currentStaffs, staffObj];
 
         return { ...r, assignedStaffs: updatedStaffs };
@@ -589,13 +629,13 @@ export default function MaintenancePlanPage() {
         // Chuẩn bị dữ liệu gửi lên API
         const planData = {
           created_by: parseInt(getCurrentEmployeeId()) || 2,
-          device_id: editingRow.deviceCode ? parseInt(editingRow.deviceCode.replace('DEV-', '')) : 1,
+          device_id: Number(editingRow.deviceId) || (editingRow.deviceCode ? parseInt(editingRow.deviceCode.replace('DEV-', ''), 10) : 1),
           plan_type: editingRow.actionType === 'Sửa chữa' ? 'repair' : 'maintenance',
           description: editingRow.content,
           estimated_cost: editingRow.cost,
           planned_start_at: `${editingRow.startDate}T08:00:00Z`,
           planned_end_at: `${editingRow.endDate}T17:00:00Z`,
-          employee_ids: editingRow.assignedStaffs.map(s => parseInt(s.id.replace('EMP-', '')))
+          employee_ids: editingRow.assignedStaffs.map(s => normalizeEmployeeId(s.id || s.staffId))
         };
 
         let result;
@@ -604,7 +644,7 @@ export default function MaintenancePlanPage() {
           result = await maintenanceApi.updatePlan(editingRow.planId, {
             description: editingRow.content,
             employeesList: editingRow.assignedStaffs.map(s => ({
-              employee_id: parseInt(s.id.replace('EMP-', '')),
+              employee_id: normalizeEmployeeId(s.id || s.staffId),
               availability_status: 'available'
             }))
           });
@@ -619,32 +659,21 @@ export default function MaintenancePlanPage() {
         alert("Đã lưu thành công!");
         
         // Refresh data
-        const response = await maintenanceApi.getPlans({ limit: 100 });
-        const plansData = Array.isArray(response) ? response : response?.data || [];
-        const plans = plansData.map(item => ({
-          id: item.id || item._id,
-          selected: false,
-          deviceType: item.plan_type === 'repair' ? 'Sửa chữa' : 'Bảo trì',
-          deviceCode: item.device_id ? `DEV-${item.device_id}` : 'N/A',
-          status: item.actual_end_at ? 'Hoàn thành' : item.actual_start_at ? 'Đang thực hiện' : 'Chờ thực hiện',
-          actionType: item.plan_type === 'repair' ? 'Sửa chữa' : 'Bảo trì',
-          content: item.description || '',
-          supplies: [],
-          cost: item.estimated_cost ? Number(item.estimated_cost) : 0,
-          assignedStaffs: Array.isArray(item.plan_assignments) 
-            ? item.plan_assignments.map(a => ({ id: a.employee_id, name: `EMP-${a.employee_id}`, status: a.availability_status || 'available' }))
-            : [],
-          startDate: item.planned_start_at ? item.planned_start_at.split('T')[0] : '',
-          endDate: item.planned_end_at ? item.planned_end_at.split('T')[0] : '',
-          actualStartDate: item.actual_start_at ? item.actual_start_at.split('T')[0] : '',
-          actualEndDate: item.actual_end_at ? item.actual_end_at.split('T')[0] : '',
-          planId: item.id,
-          autoInterval: null
-        }));
-        setRows(plans);
+        const [plansResponse, devicesResponse, employeesResponse] = await Promise.all([
+          maintenanceApi.getPlans({ limit: 100 }),
+          deviceApi.getDevices({ limit: 100 }),
+          userApi.getUsers({ limit: 100 })
+        ]);
+        const plansData = Array.isArray(plansResponse) ? plansResponse : plansResponse?.data || [];
+        const devices = Array.isArray(devicesResponse) ? devicesResponse : devicesResponse?.data || [];
+        const employees = Array.isArray(employeesResponse) ? employeesResponse : employeesResponse?.data || [];
+        const devicesById = new Map(devices.map(device => [String(device.id || device._id), device]));
+        const employeesById = new Map(employees.map(employee => [String(getEmployeeId(employee)), employee]));
+        setRows(plansData.map(item => mapPlanToRow(item, devicesById, employeesById)));
       } catch (error) {
         console.error('Error saving plan:', error);
-        alert(`Lỗi khi lưu: ${error.message}`);
+        const errorMessage = error?.message || error?.response?.data?.message || error?.message || 'Không thể cập nhật kế hoạch';
+        alert(`Lỗi khi lưu: ${errorMessage}`);
       }
     }
   };

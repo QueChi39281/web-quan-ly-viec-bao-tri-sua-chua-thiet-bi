@@ -41,17 +41,17 @@ export const useTechnicianDashboard = () => {
         setLoading(true);
         // Fetch unassigned tasks
         const unassignedRes = await maintenanceApi.getRequests({ status: 'UNASSIGNED' });
-        const unassignedData = (unassignedRes.data || []).map(d => formatDeviceToTask(d, 'Chưa phân công'));
+        const unassignedData = (Array.isArray(unassignedRes) ? unassignedRes : unassignedRes.data || []).map(d => formatDeviceToTask(d, 'Chưa phân công'));
         setUnassignedTasks(unassignedData);
 
         // Fetch assigned tasks
         const assignedRes = await maintenanceApi.getRequests({ status: 'IN_PROGRESS' });
-        const assignedData = (assignedRes.data || []).slice(0, 2).map(d => formatDeviceToTask(d, 'Đang sửa chữa'));
+        const assignedData = (Array.isArray(assignedRes) ? assignedRes : assignedRes.data || []).slice(0, 2).map(d => formatDeviceToTask(d, 'Đang sửa chữa'));
         setAssignedTasks(assignedData);
 
         // Fetch today's high priority tasks
         const todayRes = await maintenanceApi.getRequests({ priority: 'HIGH' });
-        const todayData = (todayRes.data || []).slice(0, 3).map(d => formatDeviceToTask(d, 'Chờ xử lý'));
+        const todayData = (Array.isArray(todayRes) ? todayRes : todayRes.data || []).slice(0, 3).map(d => formatDeviceToTask(d, 'Chờ xử lý'));
         setTodayTasks(todayData);
       } catch (error) {
         console.error('Failed to fetch technician tasks:', error);

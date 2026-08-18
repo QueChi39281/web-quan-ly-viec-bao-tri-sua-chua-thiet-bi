@@ -5,7 +5,7 @@ import ApproveModal from './components/ApproveModal';
 import RejectModal from './components/RejectModal';
 import Pagination from '../tickets/components/Pagination';
 import ExportExcelButton from '../../components/ExportExcelButton';
-import { maintenanceApi } from '../../services/api';
+import { getCurrentEmployeeId, maintenanceApi } from '../../services/api';
 import './AcceptancePage.css';
 
 const PAGE_SIZE = 30;
@@ -52,40 +52,6 @@ export default function AcceptancePage() {
   const [selectedUserConfirmFilter, setSelectedUserConfirmFilter] = useState('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const [sortConfig, setSortConfig] = useState({ key: 'createdAt', direction: 'desc' });
-
-  // Nạp dữ liệu từ API
-  useEffect(() => {
-    const fetchRequests = async () => {
-      try {
-        // Lấy danh sách acceptance reports từ API thật
-        const response = await maintenanceApi.getAcceptanceReports({ status: 'pending', limit: 100 });
-        
-        const data = Array.isArray(response) ? response : response?.data || [];
-        
-        // Map dữ liệu từ API sang cấu trúc component
-        const mapped = data.map(item => ({
-          id: item.id || item._id,
-          deviceCode: item.device_id ? `DEV-${item.device_id}` : 'N/A',
-          deviceName: item.device_name || 'N/A',
-          employeeName: item.employee_name || item.created_by || 'N/A',
-          errorDescription: item.description || item.reason || '',
-          solution: item.solution || '',
-          usedComponents: item.used_components || item.components || '',
-          userConfirmation: item.user_confirmation || false,
-          createdAt: item.created_at || item.createdAt || new Date().toISOString(),
-          estimatedCost: item.estimated_cost || 0,
-          managerName: item.manager_name || item.approved_by || 'Chưa duyệt',
-          status: item.status || 'pending'
-        }));
-        
-        setRequests(mapped);
-      } catch (error) {
-        console.error('Failed to fetch acceptance requests:', error);
-        setRequests([]);
-      }
-    };
-    fetchRequests();
-  }, []);
 
   const handleSort = (key) => {
     setSortConfig(prev => ({
@@ -145,20 +111,38 @@ export default function AcceptancePage() {
     setIsRejectOpen(true);
   };
 
-  const handleConfirmApprove = (ticket, evaluation) => {
-    setRequests(prev => prev.map(item => 
-      item.id === ticket.id ? { ...item, status: 'APPROVED', evaluation } : item
-    ));
-    setIsApproveOpen(false);
-    setSelectedTicket(null);
+  const handleConfirmApprove = async (ticket, evaluation) => {
+    try {
+      await maintenanceApi.approveAcceptanceReport(ticket.id, {
+        approved_by: Number(getCurrentEmployeeId()) || 1,
+        status: 'success'
+      });
+      setRequests(prev => prev.map(item =>
+        item.id === ticket.id ? { ...item, status: 'success', evaluation } : item
+      ));
+      setIsApproveOpen(false);
+      setSelectedTicket(null);
+    } catch (error) {
+      console.error('Failed to approve acceptance report:', error);
+      alert('Không thể duyệt biên bản nghiệm thu.');
+    }
   };
 
-  const handleConfirmReject = (ticket, reason) => {
-    setRequests(prev => prev.map(item => 
-      item.id === ticket.id ? { ...item, status: 'REJECTED', rejectReason: reason } : item
-    ));
-    setIsRejectOpen(false);
-    setSelectedTicket(null);
+  const handleConfirmReject = async (ticket, reason) => {
+    try {
+      await maintenanceApi.approveAcceptanceReport(ticket.id, {
+        approved_by: Number(getCurrentEmployeeId()) || 1,
+        status: 'fail'
+      });
+      setRequests(prev => prev.map(item =>
+        item.id === ticket.id ? { ...item, status: 'fail', rejectReason: reason } : item
+      ));
+      setIsRejectOpen(false);
+      setSelectedTicket(null);
+    } catch (error) {
+      console.error('Failed to reject acceptance report:', error);
+      alert('Không thể từ chối biên bản nghiệm thu.');
+    }
   };
 
   const renderSortArrow = (key) => {

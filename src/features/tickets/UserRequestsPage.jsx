@@ -37,7 +37,7 @@ export default function UserRequestsPage() {
     const fetchRequests = async () => {
       try {
         const response = await maintenanceApi.getRequests({ requestType: 'USER' });
-        setRequests(response.data || []);
+        setRequests(Array.isArray(response) ? response : response?.data || []);
       } catch (error) {
         console.error('Failed to fetch user requests:', error);
         setRequests([]);

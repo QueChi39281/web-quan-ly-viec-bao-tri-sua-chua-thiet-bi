@@ -28,7 +28,7 @@ export default function TechnicianRequestsPage() {
     const fetchRequests = async () => {
       try {
         const response = await maintenanceApi.getRequests({ requestType: 'TECHNICIAN' });
-        setRequests(response.data || []);
+        setRequests(Array.isArray(response) ? response : response?.data || []);
       } catch (error) {
         console.error('Failed to fetch technician requests:', error);
         setRequests([]);

@@ -1,4 +1,4 @@
-import { maintenanceApi, notificationApi } from '../../../services/api.js';
+import { getCurrentEmployeeId, maintenanceApi, notificationApi } from '../../../services/api.js';
 
 const normalizeStatus = (status) => {
   if (!status) return 'PENDING_REVIEW';
@@ -80,17 +80,13 @@ export const reportService = {
   createMaintenanceRequest: async (payload) => {
     try {
       const requestPayload = {
-        ...payload,
-        title: payload.title,
+        created_by: Number(payload.created_by || getCurrentEmployeeId()) || 1,
+        device_id: Number(payload.deviceId || payload.device_id),
+        priority: String(payload.priority || 'LOW').toLowerCase(),
         description: payload.description,
-        deviceId: payload.deviceId,
-        deviceCode: payload.deviceId,
-        requestType: payload.requestType || 'PROPOSAL',
-        priority: payload.priority || 'LOW',
-        reportedByUserId: payload.reportedByUserId || 'current-user-uuid',
       };
 
-      const response = await maintenanceApi.createRequest(requestPayload);
+      const response = await maintenanceApi.createRepair(requestPayload);
       return {
         success: true,
         message: response?.message || 'Maintenance request created successfully',
@@ -104,9 +100,9 @@ export const reportService = {
 
   approveCompletion: async (id, decision) => {
     try {
-      const response = await maintenanceApi.approveCompletion(id, {
-        decision,
-        approved: decision === 'APPROVED',
+      const response = await maintenanceApi.approveRepair(id, {
+        approved_by: Number(getCurrentEmployeeId()) || 1,
+        status: decision === 'APPROVED' ? 'success' : 'fail',
       });
       return {
         success: true,
