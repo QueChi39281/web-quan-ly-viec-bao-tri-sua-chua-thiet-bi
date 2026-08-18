@@ -1,66 +1,58 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Check, Bell, CheckCheck, Inbox } from 'lucide-react';
-import { notificationApi } from '../services/api.js';
+import { 
+  notificationApi, 
+  normalizeNotificationList, 
+  getCurrentEmployeeId,
+  saveLocalReadIds 
+} from '../services/api.js';
 import './NotificationPopup.css';
 
 export default function NotificationPopup({ isOpen, onClose, onUnreadChange }) {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
-  const popupRef = useRef(null);
+  const popupRef = useRef(null); // Fixed missing 'const'
 
-  // 1. Tải danh sách thông báo khi popup mở
-  const fetchNotifications = async () => {
+  // Cập nhật số lượng chưa đọc ra ngoài Badge
+  const updateUnreadCount = useCallback((list) => {
+    if (onUnreadChange) {
+      const count = Array.isArray(list) ? list.filter((item) => !item.isRead && !item.is_read).length : 0;
+      onUnreadChange(count);
+    }
+  }, [onUnreadChange]);
+
+  // 1. Tải danh sách thông báo
+  const fetchNotifications = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await notificationApi.getAll();
-      const data = response.data?.data || response.data || [];
-      const list = Array.isArray(data) ? data : [];
+      const employeeId = getCurrentEmployeeId();
+      const response = employeeId
+        ? await notificationApi.getEmployeeNotifications(employeeId)
+        : await notificationApi.getAll();
+      
+      const list = normalizeNotificationList(response, employeeId);
+      
       setNotifications(list);
       updateUnreadCount(list);
     } catch (error) {
       console.error('Lỗi khi lấy danh sách thông báo:', error);
-      // Giả lập dữ liệu mẫu nếu API bị lỗi/chưa khởi tạo
-      const mockData = [
-        {
-          id: 1,
-          title: 'Yêu cầu bảo trì mới',
-          content: 'Thiết bị Máy nén khí #02 báo lỗi áp suất.',
-          is_read: false,
-          createdAt: '10 phút trước',
-        },
-        {
-          id: 2,
-          title: 'Cập nhật hệ thống',
-          content: 'Hệ thống sẽ bảo trì định kỳ vào 23:00 tối nay.',
-          is_read: false,
-          createdAt: '1 giờ trước',
-        },
-        {
-          id: 3,
-          title: 'Đăng nhập thành công',
-          content: 'Tài khoản vừa được đăng nhập trên thiết bị mới.',
-          is_read: true,
-          createdAt: '1 ngày trước',
-        },
-      ];
-      setNotifications(mockData);
-      updateUnreadCount(mockData);
+      setNotifications([]);
+      updateUnreadCount([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [updateUnreadCount]);
 
   useEffect(() => {
     if (isOpen) {
       fetchNotifications();
     }
-  }, [isOpen]);
+  }, [isOpen, fetchNotifications]);
 
-  // 2. Tự động đóng popup khi click ra ngoài
+  // 2. Click outside để đóng popup
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (popupRef.current && !popupRef.current.contains(event.target)) {
-        // Kiểm tra nếu click không thuộc nút Toggle Bell
         if (!event.target.closest('.header-btn-notification')) {
           onClose();
         }
@@ -75,40 +67,56 @@ export default function NotificationPopup({ isOpen, onClose, onUnreadChange }) {
     };
   }, [isOpen, onClose]);
 
-  // 3. Cập nhật số lượng thông báo chưa đọc ra component cha
-  const updateUnreadCount = (list) => {
-    if (onUnreadChange) {
-      const count = list.filter((item) => !item.is_read).length;
-      onUnreadChange(count);
-    }
-  };
-
-  // 4. Đánh dấu 1 thông báo đã đọc
+  // 3. Đánh dấu 1 thông báo đã đọc
   const handleMarkAsRead = async (id, e) => {
-    e.stopPropagation();
+    if (e) e.stopPropagation();
+
+    const targetId = String(id);
+    const employeeId = getCurrentEmployeeId();
+
+    // A. Lưu ID vào cache FE để bảo vệ khỏi dữ liệu thiếu từ API GET
+    saveLocalReadIds([targetId], employeeId);
+
+    // B. Cập nhật State UI ngay lập tức
+    const updatedList = notifications.map((item) =>
+      String(item.id) === targetId ? { ...item, isRead: true, is_read: true } : item
+    );
+    setNotifications(updatedList);
+    updateUnreadCount(updatedList);
+
+    // C. Bắn API cập nhật DB
     try {
-      await notificationApi.markAsRead(id);
+      await notificationApi.markAsRead(targetId);
     } catch (error) {
-      console.error('Lỗi đánh dấu đã đọc:', error);
-    } finally {
-      const updatedList = notifications.map((item) =>
-        item.id === id ? { ...item, is_read: true } : item
-      );
-      setNotifications(updatedList);
-      updateUnreadCount(updatedList);
+      console.error('Lỗi khi gọi API markAsRead:', error);
     }
   };
 
-  // 5. Đánh dấu tất cả là đã đọc
+  // 4. Đánh dấu tất cả là đã đọc
   const handleMarkAllAsRead = async () => {
+    const unreadItems = notifications.filter((item) => !item.isRead && !item.is_read);
+    if (unreadItems.length === 0) return;
+
+    const unreadIds = unreadItems.map((item) => String(item.id));
+    const employeeId = getCurrentEmployeeId();
+
+    // A. Lưu tất cả ID vào Cache FE
+    saveLocalReadIds(unreadIds, employeeId);
+
+    // B. Cập nhật State UI
+    const updatedList = notifications.map((item) => ({ 
+      ...item, 
+      isRead: true, 
+      is_read: true 
+    }));
+    setNotifications(updatedList);
+    updateUnreadCount(updatedList);
+
+    // C. Bắn API cập nhật DB
     try {
-      await notificationApi.markAllAsRead();
+      await notificationApi.markAllAsRead(employeeId);
     } catch (error) {
-      console.error('Lỗi đọc tất cả:', error);
-    } finally {
-      const updatedList = notifications.map((item) => ({ ...item, is_read: true }));
-      setNotifications(updatedList);
-      updateUnreadCount(updatedList);
+      console.error('Lỗi khi gọi API markAllAsRead:', error);
     }
   };
 
@@ -147,28 +155,33 @@ export default function NotificationPopup({ isOpen, onClose, onUnreadChange }) {
             <p>Không có thông báo nào</p>
           </div>
         ) : (
-          notifications.map((item) => (
-            <div
-              key={item.id}
-              className={`notification-item ${item.is_read ? 'read' : 'unread'}`}
-            >
-              <div className="item-main">
-                <h4 className="item-title">{item.title}</h4>
-                <p className="item-desc">{item.content}</p>
-                <span className="item-time">{item.createdAt}</span>
+          notifications.map((item, index) => {
+            const isRead = Boolean(item.isRead || item.is_read);
+            return (
+              <div
+                key={item.id || index}
+                className={`notification-item ${isRead ? 'read' : 'unread'}`}
+              >
+                <div className="item-main">
+                  <h4 className="item-title">{item.title}</h4>
+                  <p className="item-desc">{item.content}</p>
+                  <span className="item-time">
+                    {item.createdAt ? new Date(item.createdAt).toLocaleString('vi-VN') : ''}
+                  </span>
+                </div>
+                {!isRead && (
+                  <button
+                    type="button"
+                    className="btn-mark-one"
+                    onClick={(e) => handleMarkAsRead(item.id, e)}
+                    title="Đánh dấu đã đọc"
+                  >
+                    <Check size={14} />
+                  </button>
+                )}
               </div>
-              {!item.is_read && (
-                <button
-                  type="button"
-                  className="btn-mark-one"
-                  onClick={(e) => handleMarkAsRead(item.id, e)}
-                  title="Đánh dấu đã đọc"
-                >
-                  <Check size={14} />
-                </button>
-              )}
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

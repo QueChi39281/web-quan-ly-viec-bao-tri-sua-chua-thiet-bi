@@ -1,4 +1,3 @@
-// src/features/login/LoginPage.jsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Lock, User, Eye, EyeOff, Wrench, AlertCircle, Loader2, CheckCircle2 } from 'lucide-react';
@@ -9,9 +8,10 @@ export const getRouteByRole = (role) => {
   const normalizedRole = role?.toUpperCase();
   switch (normalizedRole) {
     case 'ADMIN':
-      return '/admin/tickets';
+      return '/admin/users';
     case 'MANAGER':
       return '/manager/dashboard';
+    case 'TECH':
     case 'TECHNICIAN':
     case 'MAINTENANCE_STAFF':
       return '/technician-dashboard';
@@ -49,7 +49,6 @@ export default function LoginPage() {
     setSuccessMessage('');
 
     try {
-      // Gọi API quên mật khẩu (truyền username hoặc email)
       const res = await authApi.forgotPassword({ username: formData.username });
       if (res?.success) {
         setSuccessMessage(res?.message || 'Nếu tài khoản tồn tại, liên kết khôi phục đã được gửi.');
@@ -71,28 +70,40 @@ export default function LoginPage() {
     setErrorMessage('');
 
     try {
-      // 🚀 Gọi API Login với đúng contract { username, password }
       const res = await authApi.login({
         username: formData.username.trim(),
         password: formData.password,
       });
 
+      console.log('[LOGIN RESULT]', res);
+
       if (res?.success) {
-        const payload = res.data;
-        const userData = payload?.user;
-        const token = payload?.accessToken;
-        const refreshToken = payload?.refreshToken;
+        const payload = res?.data || res;
+        const authData = payload?.data || payload;
+        const userData = authData?.user || payload?.user;
+        const token = authData?.accessToken || payload?.accessToken;
+        const refreshToken = authData?.refreshToken || payload?.refreshToken;
 
         if (!userData || !userData.role) {
           throw new Error("Dữ liệu trả về không hợp lệ (thiếu user/role)");
         }
 
-        // Lưu thông tin vào LocalStorage
+        if (!token) {
+          throw new Error('Đăng nhập trả về token rỗng. Vui lòng kiểm tra gateway response.');
+        }
+
+        // Lưu thông tin vào LocalStorage theo contract gateway thực tế
+        const employeeId = userData.employee_id || userData.id;
         localStorage.setItem('accessToken', token);
-        localStorage.setItem('refreshToken', refreshToken);
-        localStorage.setItem('userId', userData.id);
+        localStorage.setItem('refreshToken', refreshToken || '');
+        localStorage.setItem('employeeId', employeeId);
+        localStorage.setItem('userId', employeeId);
+        localStorage.setItem('userAccountId', userData.id || employeeId);
         localStorage.setItem('userRole', userData.role);
         localStorage.setItem('userInfo', JSON.stringify(userData));
+
+        // Phát sự kiện toàn cục để HeaderInfo cập nhật ngay lập tức
+        window.dispatchEvent(new Event('userLoginSuccess'));
 
         // Chuyển hướng theo Role
         const targetRoute = getRouteByRole(userData.role);
@@ -102,7 +113,6 @@ export default function LoginPage() {
       }
     } catch (err) {
       console.error("Lỗi đăng nhập:", err);
-      // Bắt lỗi từ Axios / AppError trả về
       const apiErrorMsg = err?.response?.data?.message || err?.message || 'Tên đăng nhập hoặc mật khẩu không chính xác.';
       setErrorMessage(apiErrorMsg);
     } finally {

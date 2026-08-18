@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import ManagerSidebar from '../../components/ManagerSidebar';
 import HeaderInfo from '../../components/HeaderInfo';
 import ExportExcelButton from '../../components/ExportExcelButton';
@@ -13,48 +13,16 @@ const formatJson = (value) => {
   return JSON.stringify(value, null, 2);
 };
 
-export default function UserManagementPage() {
+export default function SystemLogPage() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchAuditLogs = async () => {
-      try {
-        setLoading(true);
-        const response = await auditApi.getAudits({ limit: 100 });
-        const data = Array.isArray(response) ? response : response?.data || response?.items || [];
-
-        const mapped = (Array.isArray(data) ? data : []).map((log, index) => ({
-          id: log.id || log._id || index + 1,
-          actor_employee_id: log.actorEmployeeId || log.actor_employee_id || log.employeeId || '-',
-          actor_name: log.actorName || log.actor_name || log.userName || 'N/A',
-          action: log.action || log.type || 'UNKNOWN',
-          service_name: log.serviceName || log.service_name || 'N/A',
-          table_name: log.tableName || log.table_name || 'N/A',
-          record_id: log.recordId || log.record_id || log.targetId || '-',
-          old_value: log.oldValue || log.old_value || null,
-          new_value: log.newValue || log.new_value || null,
-          created_at: log.createdAt || log.created_at || new Date().toISOString(),
-        }));
-
-        setLogs(mapped);
-      } catch (error) {
-        console.error('Không thể tải log hệ thống từ API:', error);
-        setLogs([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAuditLogs();
-  }, []);
   const [filterForm, setFilterForm] = useState({
     actor_employee_id: '',
     actor_name: '',
     action: '',
     service_name: '',
     table_name: '',
-    record_id: ''
+    record_id: '',
   });
   const [appliedFilters, setAppliedFilters] = useState({
     actor_employee_id: '',
@@ -62,26 +30,67 @@ export default function UserManagementPage() {
     action: '',
     service_name: '',
     table_name: '',
-    record_id: ''
+    record_id: '',
   });
   const [currentPage, setCurrentPage] = useState(1);
-  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+  const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' });
 
-  const excelColumns = useMemo(() => [
-    { header: 'ID Log', key: 'id', align: 'center' },
-    { header: 'actor_employee_id', key: 'actor_employee_id', align: 'left' },
-    { header: 'actor_name', key: 'actor_name', align: 'left' },
-    { header: 'action', key: 'action', align: 'left' },
-    { header: 'service_name', key: 'service_name', align: 'left' },
-    { header: 'table_name', key: 'table_name', align: 'left' },
-    { header: 'record_id', key: 'record_id', align: 'left' },
-    { header: 'old_value JSONB', key: 'old_value', align: 'left', formatter: formatJson },
-    { header: 'new_value JSONB', key: 'new_value', align: 'left', formatter: formatJson },
-    { header: 'created_at', key: 'created_at', align: 'left' }
-  ], []);
+  useEffect(() => {
+    const fetchLogs = async () => {
+      try {
+        setLoading(true);
+        const response = await auditApi.getAudits({ limit: 200 });
+        const data = Array.isArray(response)
+          ? response
+          : Array.isArray(response?.data)
+            ? response.data
+            : Array.isArray(response?.items)
+              ? response.items
+              : [];
+
+        const mapped = (Array.isArray(data) ? data : []).map((log, index) => ({
+          id: log.id ?? log._id ?? index + 1,
+          actor_employee_id: log.actor_employee_id ?? log.actorEmployeeId ?? log.employeeId ?? '-',
+          actor_name: log.actor_name ?? log.actorName ?? log.userName ?? 'N/A',
+          action: log.action ?? log.type ?? 'UNKNOWN',
+          service_name: log.service_name ?? log.serviceName ?? 'N/A',
+          table_name: log.table_name ?? log.tableName ?? 'N/A',
+          record_id: log.record_id ?? log.recordId ?? log.targetId ?? '-',
+          old_value: log.old_value ?? log.oldValue ?? null,
+          new_value: log.new_value ?? log.newValue ?? null,
+          created_at: log.created_at ?? log.createdAt ?? new Date().toISOString(),
+        }));
+
+        setLogs(mapped);
+      } catch (error) {
+        console.error('Không thể tải log hệ thống:', error);
+        setLogs([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchLogs();
+  }, []);
+
+  const excelColumns = useMemo(
+    () => [
+      { header: 'ID log', key: 'id', align: 'center' },
+      { header: 'actor_employee_id', key: 'actor_employee_id', align: 'left' },
+      { header: 'actor_name', key: 'actor_name', align: 'left' },
+      { header: 'action', key: 'action', align: 'left' },
+      { header: 'service_name', key: 'service_name', align: 'left' },
+      { header: 'table_name', key: 'table_name', align: 'left' },
+      { header: 'record_id', key: 'record_id', align: 'left' },
+      { header: 'old_value JSONB', key: 'old_value', align: 'left', formatter: formatJson },
+      { header: 'new_value JSONB', key: 'new_value', align: 'left', formatter: formatJson },
+      { header: 'created_at', key: 'created_at', align: 'left' },
+    ],
+    []
+  );
 
   const handleFilterInputChange = (field, value) => {
-    setFilterForm(prev => ({ ...prev, [field]: value }));
+    setFilterForm((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleApplyFilter = () => {
@@ -96,7 +105,7 @@ export default function UserManagementPage() {
       action: '',
       service_name: '',
       table_name: '',
-      record_id: ''
+      record_id: '',
     };
     setFilterForm(empty);
     setAppliedFilters(empty);
@@ -104,13 +113,13 @@ export default function UserManagementPage() {
   };
 
   const filteredLogs = useMemo(() => {
-    return logs.filter(log => {
-      const actorEmployee = (log.actor_employee_id || '').toString().toLowerCase();
-      const actorName = (log.actor_name || '').toLowerCase();
-      const action = (log.action || '').toLowerCase();
-      const serviceName = (log.service_name || '').toLowerCase();
-      const tableName = (log.table_name || '').toLowerCase();
-      const recordId = (log.record_id || '').toString().toLowerCase();
+    return logs.filter((log) => {
+      const actorEmployee = String(log.actor_employee_id || '').toLowerCase();
+      const actorName = String(log.actor_name || '').toLowerCase();
+      const action = String(log.action || '').toLowerCase();
+      const serviceName = String(log.service_name || '').toLowerCase();
+      const tableName = String(log.table_name || '').toLowerCase();
+      const recordId = String(log.record_id || '').toLowerCase();
 
       if (appliedFilters.actor_employee_id && !actorEmployee.includes(appliedFilters.actor_employee_id.trim().toLowerCase())) return false;
       if (appliedFilters.actor_name && !actorName.includes(appliedFilters.actor_name.trim().toLowerCase())) return false;
@@ -123,14 +132,15 @@ export default function UserManagementPage() {
   }, [logs, appliedFilters]);
 
   const handleSort = (key) => {
-    setSortConfig(prev => {
-      const nextDirection = prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc';
-      return { key, direction: nextDirection };
+    setSortConfig((prev) => {
+      const direction = prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc';
+      return { key, direction };
     });
   };
 
   const sortedLogs = useMemo(() => {
     const items = [...filteredLogs];
+
     if (!sortConfig.key) return items;
 
     items.sort((a, b) => {
@@ -147,18 +157,18 @@ export default function UserManagementPage() {
     return items;
   }, [filteredLogs, sortConfig]);
 
+  const totalItems = sortedLogs.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / ITEMS_PER_PAGE));
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, totalItems);
+  const paginatedLogs = sortedLogs.slice(startIndex, endIndex);
+
   const renderSortArrow = (key) => {
     if (sortConfig.key === key) {
       return <span className="sort-arrow">{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>;
     }
     return <span className="sort-arrow inactive">▲▼</span>;
   };
-
-  const totalItems = sortedLogs.length;
-  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE) || 1;
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const endIndex = Math.min(startIndex + ITEMS_PER_PAGE, totalItems);
-  const paginatedLogs = sortedLogs.slice(startIndex, endIndex);
 
   return (
     <div className="page-root-layout">
@@ -170,63 +180,35 @@ export default function UserManagementPage() {
         <ManagerSidebar />
 
         <main className="main-content-container">
-          <h2 className="plan-page-title">Quản lý tài khoản</h2>
-          <p style={{ margin: '-10px 0 18px', color: '#52607a', fontWeight: 600 }}>Xem log hệ thống</p>
+          <h2 className="plan-page-title">Hiển thị log hệ thống</h2>
+          <p style={{ margin: '-10px 0 18px', color: '#52607a', fontWeight: 600 }}>
+            Theo dõi các thao tác được ghi lại theo schema hệ thống.
+          </p>
 
           <div className="filter-bar-container">
             <div className="filter-group">
               <label>Mã nhân viên:</label>
-              <input
-                type="text"
-                className="filter-control"
-                value={filterForm.actor_employee_id}
-                onChange={(e) => handleFilterInputChange('actor_employee_id', e.target.value)}
-              />
+              <input type="text" className="filter-control" value={filterForm.actor_employee_id} onChange={(e) => handleFilterInputChange('actor_employee_id', e.target.value)} />
             </div>
             <div className="filter-group">
               <label>Tên nhân viên:</label>
-              <input
-                type="text"
-                className="filter-control"
-                value={filterForm.actor_name}
-                onChange={(e) => handleFilterInputChange('actor_name', e.target.value)}
-              />
+              <input type="text" className="filter-control" value={filterForm.actor_name} onChange={(e) => handleFilterInputChange('actor_name', e.target.value)} />
             </div>
             <div className="filter-group">
               <label>Hành động:</label>
-              <input
-                type="text"
-                className="filter-control"
-                value={filterForm.action}
-                onChange={(e) => handleFilterInputChange('action', e.target.value)}
-              />
+              <input type="text" className="filter-control" value={filterForm.action} onChange={(e) => handleFilterInputChange('action', e.target.value)} />
             </div>
             <div className="filter-group">
               <label>Service:</label>
-              <input
-                type="text"
-                className="filter-control"
-                value={filterForm.service_name}
-                onChange={(e) => handleFilterInputChange('service_name', e.target.value)}
-              />
+              <input type="text" className="filter-control" value={filterForm.service_name} onChange={(e) => handleFilterInputChange('service_name', e.target.value)} />
             </div>
             <div className="filter-group">
               <label>Bảng:</label>
-              <input
-                type="text"
-                className="filter-control"
-                value={filterForm.table_name}
-                onChange={(e) => handleFilterInputChange('table_name', e.target.value)}
-              />
+              <input type="text" className="filter-control" value={filterForm.table_name} onChange={(e) => handleFilterInputChange('table_name', e.target.value)} />
             </div>
             <div className="filter-group">
               <label>ID bản ghi:</label>
-              <input
-                type="text"
-                className="filter-control"
-                value={filterForm.record_id}
-                onChange={(e) => handleFilterInputChange('record_id', e.target.value)}
-              />
+              <input type="text" className="filter-control" value={filterForm.record_id} onChange={(e) => handleFilterInputChange('record_id', e.target.value)} />
             </div>
             <div className="filter-actions-group">
               <button type="button" className="btn-apply-filter" onClick={handleApplyFilter}>🔍 Lọc</button>
@@ -235,32 +217,31 @@ export default function UserManagementPage() {
           </div>
 
           <div className="top-action-bar">
-            <ExportExcelButton
-              data={sortedLogs}
-              fileName="system_logs"
-              tableTitle="LOG HỆ THỐNG"
-              columns={excelColumns}
-            />
+            <ExportExcelButton data={sortedLogs} fileName="system_logs" tableTitle="LOG HỆ THỐNG" columns={excelColumns} />
           </div>
 
           <div className="frame-33-table-wrapper">
             <table className="maintenance-table">
               <thead>
                 <tr>
-                  <th className="col-stt sortable-th" onClick={() => handleSort('id')}><div className="th-content">ID log {renderSortArrow('id')}</div></th>
-                  <th onClick={() => handleSort('actor_employee_id')} className="sortable-th"><div className="th-content">actor_employee_id {renderSortArrow('actor_employee_id')}</div></th>
-                  <th onClick={() => handleSort('actor_name')} className="sortable-th"><div className="th-content">actor_name {renderSortArrow('actor_name')}</div></th>
-                  <th onClick={() => handleSort('action')} className="sortable-th"><div className="th-content">action {renderSortArrow('action')}</div></th>
-                  <th onClick={() => handleSort('service_name')} className="sortable-th"><div className="th-content">service_name {renderSortArrow('service_name')}</div></th>
-                  <th onClick={() => handleSort('table_name')} className="sortable-th"><div className="th-content">table_name {renderSortArrow('table_name')}</div></th>
-                  <th onClick={() => handleSort('record_id')} className="sortable-th"><div className="th-content">record_id {renderSortArrow('record_id')}</div></th>
+                  <th className="sortable-th" onClick={() => handleSort('id')}><div className="th-content">ID log {renderSortArrow('id')}</div></th>
+                  <th className="sortable-th" onClick={() => handleSort('actor_employee_id')}><div className="th-content">actor_employee_id {renderSortArrow('actor_employee_id')}</div></th>
+                  <th className="sortable-th" onClick={() => handleSort('actor_name')}><div className="th-content">actor_name {renderSortArrow('actor_name')}</div></th>
+                  <th className="sortable-th" onClick={() => handleSort('action')}><div className="th-content">action {renderSortArrow('action')}</div></th>
+                  <th className="sortable-th" onClick={() => handleSort('service_name')}><div className="th-content">service_name {renderSortArrow('service_name')}</div></th>
+                  <th className="sortable-th" onClick={() => handleSort('table_name')}><div className="th-content">table_name {renderSortArrow('table_name')}</div></th>
+                  <th className="sortable-th" onClick={() => handleSort('record_id')}><div className="th-content">record_id {renderSortArrow('record_id')}</div></th>
                   <th>old_value JSONB</th>
                   <th>new_value JSONB</th>
-                  <th onClick={() => handleSort('created_at')} className="sortable-th"><div className="th-content">created_at {renderSortArrow('created_at')}</div></th>
+                  <th className="sortable-th" onClick={() => handleSort('created_at')}><div className="th-content">created_at {renderSortArrow('created_at')}</div></th>
                 </tr>
               </thead>
               <tbody>
-                {paginatedLogs.length === 0 ? (
+                {loading ? (
+                  <tr>
+                    <td colSpan="10" className="empty-table-msg">Đang tải log hệ thống...</td>
+                  </tr>
+                ) : paginatedLogs.length === 0 ? (
                   <tr>
                     <td colSpan="10" className="empty-table-msg">Không tìm thấy log phù hợp.</td>
                   </tr>

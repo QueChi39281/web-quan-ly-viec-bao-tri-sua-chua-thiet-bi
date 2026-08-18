@@ -1,0 +1,110 @@
+/* FilterBar.css */
+.filter-bar-container {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 14px;
+  background-color: #ffffff;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  box-sizing: border-box;
+}
+
+/* Định dạng từng cột lọc */
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 140px;
+  min-width: 130px;
+}
+
+.filter-group label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+/* Định dạng input, select và component AutocompleteInput */
+.filter-control,
+.filter-control input {
+  width: 100% !important;
+  height: 36px;
+  padding: 6px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 13px;
+  background-color: #f8fafc;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.filter-control:focus,
+.filter-control input:focus,
+select.filter-control:focus {
+  border-color: #2563eb;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+/* Nhóm chọn Khoảng thời gian (Từ ngày - Đến ngày) */
+.filter-date-range {
+  flex: 1.8 1 240px;
+  min-width: 230px;
+}
+
+.filter-date-inputs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.date-control {
+  flex: 1;
+  min-width: 0; /* Ngăn ô input date tự co giãn tràn khung */
+}
+
+/* Nhóm nút thao tác Lọc / Đặt lại */
+.filter-actions-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.btn-apply-filter,
+.btn-reset-filter {
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  white-space: nowrap;
+  transition: background-color 0.2s ease;
+}
+
+.btn-apply-filter {
+  background-color: #2563eb;
+  color: #ffffff;
+}
+
+.btn-apply-filter:hover {
+  background-color: #1d4ed8;
+}
+
+.btn-reset-filter {
+  background-color: #e2e8f0;
+  color: #475569;
+}
+
+.btn-reset-filter:hover {
+  background-color: #cbd5e1;
+}

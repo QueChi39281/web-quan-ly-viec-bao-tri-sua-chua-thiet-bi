@@ -3,123 +3,43 @@ import ManagerSidebar from '../../components/ManagerSidebar';
 import HeaderInfo from '../../components/HeaderInfo';
 import ExportExcelButton from '../../components/ExportExcelButton';
 import AssetListRow from './components/AssetListRow';
+import { deviceApi } from '../../services/api';
 import './AssetListPage.css';
 
 const ITEMS_PER_PAGE = 20;
 
-export const INITIAL_ASSETS = [
-  {
-    id: 1,
-    selected: false,
-    assetName: 'Máy in HP LaserJet Pro M404dn',
-    assetCode: 'TB-VP01',
-    supplier: 'Phong Vũ Computer',
-    location: 'Tầng 2 - Phòng Kế toán',
-    info: 'In 2 mặt tự động, tốc độ 38 trang/phút'
-  },
-  {
-    id: 2,
-    selected: false,
-    assetName: 'Máy photocopy Ricoh Aficio MP 3555',
-    assetCode: 'TB-VP02',
-    supplier: 'Công ty Phú Sơn Copier',
-    location: 'Tầng 1 - Sảnh hành chính',
-    info: 'Chức năng In/Scan/Copy A3-A4, tốc độ 35 bản/phút'
-  },
-  {
-    id: 3,
-    selected: false,
-    assetName: 'Laptop Dell Latitude 5420',
-    assetCode: 'TB-VP03',
-    supplier: 'FPT Shop',
-    location: 'Tầng 3 - Phòng Nhân sự',
-    info: 'Core i5-1135G7, RAM 16GB, SSD 512GB'
-  },
-  {
-    id: 4,
-    selected: false,
-    assetName: 'Máy tính để bàn HP ProDesk 400 G7',
-    assetCode: 'TB-VP04',
-    supplier: 'Công ty Máy tính Trần Anh',
-    location: 'Tầng 2 - Phòng Kinh doanh',
-    info: 'Core i7-10700, RAM 16GB, SSD 256GB'
-  },
-  {
-    id: 5,
-    selected: false,
-    assetName: 'Máy chiếu Epson EB-FH52',
-    assetCode: 'TB-VP05',
-    supplier: 'Thế Giới Máy Chiếu',
-    location: 'Tầng 4 - Phòng họp lớn',
-    info: 'Độ sáng 4.000 Ansi Lumens, độ phân giải Full HD'
-  },
-  {
-    id: 6,
-    selected: false,
-    assetName: 'Router Wi-Fi MikroTik RB4011iGS+RM',
-    assetCode: 'TB-VP06',
-    supplier: 'Thiết bị Mạng MTC',
-    location: 'Tầng 3 - Phòng Server',
-    info: '10 cổng Gigabit Ethernet, 1 cổng SFP+ 10Gbps'
-  },
-  {
-    id: 7,
-    selected: false,
-    assetName: 'Switch Cisco Catalyst WS-C2960X-24PS-L',
-    assetCode: 'TB-VP07',
-    supplier: 'Cisco Việt Nam',
-    location: 'Tầng 3 - Phòng Server',
-    info: '24 cổng PoE+, 4 cổng SFP 1G, công suất PoE 370W'
-  },
-  {
-    id: 8,
-    selected: false,
-    assetName: 'Bộ lưu điện UPS APC Smart-UPS 2200VA',
-    assetCode: 'TB-VP08',
-    supplier: 'Tập đoàn Nguyên Kim UPS',
-    location: 'Tầng 3 - Phòng Server',
-    info: 'Công suất 1980W/2200VA, điện áp 230V'
-  },
-  {
-    id: 9,
-    selected: false,
-    assetName: 'Máy chấm công Ronald Jack FA110',
-    assetCode: 'TB-VP09',
-    supplier: 'Điện máy Quang Minh',
-    location: 'Tầng 1 - Cửa ra vào chính',
-    info: 'Nhận diện khuôn mặt (500) & Vân tay (1.000)'
-  },
-  {
-    id: 10,
-    selected: false,
-    assetName: 'Điều hòa âm trần Daikin 24.000 BTU',
-    assetCode: 'TB-VP10',
-    supplier: 'Điện máy Xanh',
-    location: 'Tầng 3 - Phòng Giám đốc',
-    info: 'Inverter 1 chiều, Gas R32, model FCF71CVM'
-  },
-  {
-    id: 11,
-    selected: false,
-    assetName: 'Máy hủy tài liệu Silicon PS-800C',
-    assetCode: 'TB-VP11',
-    supplier: 'Văn phòng phẩm Hồng Hà',
-    location: 'Tầng 2 - Phòng Hành chính',
-    info: 'Kiểu hủy vụn 2x10mm, dung tích thùng chứa 21 lít'
-  },
-  {
-    id: 12,
-    selected: false,
-    assetName: 'Màn hình Dell UltraSharp U2422H',
-    assetCode: 'TB-VP12',
-    supplier: 'Hà Nội Computer',
-    location: 'Tầng 4 - Phòng Thiết kế',
-    info: 'Kích thước 23.8 inch, tấm nền IPS, Full HD, USB-C'
-  }
-];
-
 export default function AssetListPage() {
-  const [assets, setAssets] = useState(INITIAL_ASSETS);
+  const [assets, setAssets] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchAssets = async () => {
+      try {
+        setLoading(true);
+        const response = await deviceApi.getDevices({ limit: 100 });
+        const data = Array.isArray(response) ? response : response?.data || response?.items || [];
+
+        const mapped = (Array.isArray(data) ? data : []).map((device, index) => ({
+          id: device.id || device._id || index + 1,
+          selected: false,
+          assetName: device.model || device.name || device.serial_number || 'N/A',
+          assetCode: device.serial_number || device.code || device.model || `TB-${index + 1}`,
+          supplier: device.supplier_name || device.supplier?.name || device.manufacturer_name || 'N/A',
+          location: device.location || device.current_location || device.assigned_location || 'Chưa có vị trí',
+          info: device.specifications || device.category?.name || device.model || device.description || '',
+        }));
+
+        setAssets(mapped);
+      } catch (error) {
+        console.error('Không thể tải danh sách thiết bị từ API:', error);
+        setAssets([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAssets();
+  }, []);
   const [editingRowId, setEditingRowId] = useState(null);
   const [backupRow, setBackupRow] = useState(null);
 

@@ -16,6 +16,8 @@ import './ManagerSidebar.css';
 export default function ManagerSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
+  const currentUserRole = localStorage.getItem('userRole')?.toUpperCase();
+  const isAdminOnly = currentUserRole === 'ADMIN';
 
   // State thu gọn / mở rộng sidebar
   const [isExpanded, setIsExpanded] = useState(true);
@@ -32,6 +34,7 @@ export default function ManagerSidebar() {
       setOpenSubmenu(prev => ({ ...prev, requests: true }));
     } else if (
       location.pathname.startsWith('/admin/users') ||
+      location.pathname.startsWith('/admin/system-logs') ||
       location.pathname.startsWith('/admin/supplies') ||
       location.pathname.startsWith('/admin/devices') ||
       location.pathname.startsWith('/admin/device-logs')
@@ -67,6 +70,7 @@ export default function ManagerSidebar() {
   // Kiểm tra xem trang hiện tại có thuộc menu Quản trị hay không
   const isAdminActive = [
     '/admin/users',
+    '/admin/system-logs',
     '/admin/supplies',
     '/admin/devices',
     '/admin/device-logs'
@@ -82,137 +86,163 @@ export default function ManagerSidebar() {
       </div>
 
       <nav className="sidebar-menu">
-        {/* 1. Dashboard */}
-        <div 
-          className={`menu-item ${isActive('/manager/dashboard') ? 'active' : ''}`}
-          onClick={() => handleNavigate('/manager/dashboard')}
-        >
-          <div className="icon-circle">
-            <LayoutDashboard size={20} />
-          </div>
-          {isExpanded && <span className="menu-text">Dashboard</span>}
-        </div>
-
-        {/* 2. Lập kế hoạch bảo trì */}
-        <div 
-          className={`menu-item ${isActive('/admin/maintenance-plans') ? 'active' : ''}`}
-          onClick={() => handleNavigate('/admin/maintenance-plans')}
-        >
-          <div className="icon-circle">
-            <CalendarCheck size={20} />
-          </div>
-          {isExpanded && <span className="menu-text">Lập kế hoạch bảo trì</span>}
-        </div>
-
-        {/* 3. Duyệt yêu cầu */}
-        <div className="menu-group">
-          <div 
-            className={`menu-item ${location.pathname.includes('requests') ? 'active' : ''}`}
-            onClick={() => toggleSubmenu('requests')}
-          >
-            <div className="icon-circle">
-              <ClipboardCheck size={20} />
+        {isAdminOnly ? (
+          <div className="menu-group">
+            <div 
+              className={`menu-item ${isAdminActive ? 'active' : ''}`}
+              onClick={() => toggleSubmenu('admin')}
+            >
+              <div className="icon-circle">
+                <Settings size={20} />
+              </div>
+              {isExpanded && (
+                <>
+                  <span className="menu-text">Quản trị</span>
+                  <span className="arrow-icon">
+                    {openSubmenu.admin ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                  </span>
+                </>
+              )}
             </div>
-            {isExpanded && (
-              <>
-                <span className="menu-text">Duyệt yêu cầu</span>
-                <span className="arrow-icon">
-                  {openSubmenu.requests ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                </span>
-              </>
+
+            {isExpanded && openSubmenu.admin && (
+              <div className="submenu-list">
+                <div 
+                  className={`submenu-item ${isActive('/admin/users') ? 'active-sub' : ''}`}
+                  onClick={() => handleNavigate('/admin/users')}
+                >
+                  Quản lý tài khoản
+                </div>
+                <div 
+                  className={`submenu-item ${isActive('/admin/system-logs') ? 'active-sub' : ''}`}
+                  onClick={() => handleNavigate('/admin/system-logs')}
+                >
+                  Hiển thị log hệ thống
+                </div>
+              </div>
             )}
           </div>
-
-          {/* Submenu Duyệt yêu cầu */}
-          {isExpanded && openSubmenu.requests && (
-            <div className="submenu-list">
-              <div 
-                className={`submenu-item ${isActive('/admin/technician-requests') ? 'active-sub' : ''}`}
-                onClick={() => handleNavigate('/admin/technician-requests')}
-              >
-                Yêu cầu từ nhân viên sửa chữa/bảo trì
+        ) : (
+          <>
+            <div 
+              className={`menu-item ${isActive('/manager/dashboard') ? 'active' : ''}`}
+              onClick={() => handleNavigate('/manager/dashboard')}
+            >
+              <div className="icon-circle">
+                <LayoutDashboard size={20} />
               </div>
-              <div 
-                className={`submenu-item ${isActive('/admin/user-requests') ? 'active-sub' : ''}`}
-                onClick={() => handleNavigate('/admin/user-requests')}
-              >
-                Yêu cầu từ người dùng thiết bị
-              </div>
+              {isExpanded && <span className="menu-text">Dashboard</span>}
             </div>
-          )}
-        </div>
 
-        {/* 4. Nghiệm thu */}
-        <div 
-          className={`menu-item ${isActive('/admin/acceptance') ? 'active' : ''}`}
-          onClick={() => handleNavigate('/admin/acceptance')}
-        >
-          <div className="icon-circle">
-            <CheckCircle2 size={20} />
-          </div>
-          {isExpanded && <span className="menu-text">Nghiệm thu</span>}
-        </div>
-
-        {/* 5. Quản trị */}
-        <div className="menu-group">
-          <div 
-            className={`menu-item ${isAdminActive ? 'active' : ''}`}
-            onClick={() => toggleSubmenu('admin')}
-          >
-            <div className="icon-circle">
-              <Settings size={20} />
+            <div 
+              className={`menu-item ${isActive('/admin/maintenance-plans') ? 'active' : ''}`}
+              onClick={() => handleNavigate('/admin/maintenance-plans')}
+            >
+              <div className="icon-circle">
+                <CalendarCheck size={20} />
+              </div>
+              {isExpanded && <span className="menu-text">Lập kế hoạch bảo trì</span>}
             </div>
-            {isExpanded && (
-              <>
-                <span className="menu-text">Quản trị</span>
-                <span className="arrow-icon">
-                  {openSubmenu.admin ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                </span>
-              </>
-            )}
-          </div>
 
-          {/* Submenu Quản trị */}
-          {isExpanded && openSubmenu.admin && (
-            <div className="submenu-list">
+            <div className="menu-group">
               <div 
-                className={`submenu-item ${isActive('/admin/users') ? 'active-sub' : ''}`}
-                onClick={() => handleNavigate('/admin/users')}
+                className={`menu-item ${location.pathname.includes('requests') ? 'active' : ''}`}
+                onClick={() => toggleSubmenu('requests')}
               >
-                Quản lý tài khoản
+                <div className="icon-circle">
+                  <ClipboardCheck size={20} />
+                </div>
+                {isExpanded && (
+                  <>
+                    <span className="menu-text">Duyệt yêu cầu</span>
+                    <span className="arrow-icon">
+                      {openSubmenu.requests ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                    </span>
+                  </>
+                )}
               </div>
-              <div 
-                className={`submenu-item ${isActive('/admin/supplies') ? 'active-sub' : ''}`}
-                onClick={() => handleNavigate('/admin/supplies')}
-              >
-                Quản lý vật tư
-              </div>
-              <div 
-                className={`submenu-item ${isActive('/admin/devices') ? 'active-sub' : ''}`}
-                onClick={() => handleNavigate('/admin/devices')}
-              >
-                Quản lý thiết bị
-              </div>
-              <div 
-                className={`submenu-item ${isActive('/admin/device-logs') ? 'active-sub' : ''}`}
-                onClick={() => handleNavigate('/admin/device-logs')}
-              >
-                Sổ theo dõi thiết bị
-              </div>
+
+              {isExpanded && openSubmenu.requests && (
+                <div className="submenu-list">
+                  <div 
+                    className={`submenu-item ${isActive('/admin/technician-requests') ? 'active-sub' : ''}`}
+                    onClick={() => handleNavigate('/admin/technician-requests')}
+                  >
+                    Yêu cầu từ nhân viên sửa chữa/bảo trì
+                  </div>
+                  <div 
+                    className={`submenu-item ${isActive('/admin/user-requests') ? 'active-sub' : ''}`}
+                    onClick={() => handleNavigate('/admin/user-requests')}
+                  >
+                    Yêu cầu từ người dùng thiết bị
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        {/* 6. Import file dữ liệu */}
-        <div 
-          className={`menu-item ${isActive('/manager/import') ? 'active' : ''}`}
-          onClick={() => handleNavigate('/manager/import')}
-        >
-          <div className="icon-circle">
-            <FileUp size={20} />
-          </div>
-          {isExpanded && <span className="menu-text">Import file dữ liệu</span>}
-        </div>
+            <div 
+              className={`menu-item ${isActive('/admin/acceptance') ? 'active' : ''}`}
+              onClick={() => handleNavigate('/admin/acceptance')}
+            >
+              <div className="icon-circle">
+                <CheckCircle2 size={20} />
+              </div>
+              {isExpanded && <span className="menu-text">Nghiệm thu</span>}
+            </div>
+
+            <div className="menu-group">
+              <div 
+                className={`menu-item ${isAdminActive ? 'active' : ''}`}
+                onClick={() => toggleSubmenu('admin')}
+              >
+                <div className="icon-circle">
+                  <Settings size={20} />
+                </div>
+                {isExpanded && (
+                  <>
+                    <span className="menu-text">Quản trị</span>
+                    <span className="arrow-icon">
+                      {openSubmenu.admin ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                    </span>
+                  </>
+                )}
+              </div>
+
+              {isExpanded && openSubmenu.admin && (
+                <div className="submenu-list">
+                  <div 
+                    className={`submenu-item ${isActive('/admin/supplies') ? 'active-sub' : ''}`}
+                    onClick={() => handleNavigate('/admin/supplies')}
+                  >
+                    Quản lý vật tư
+                  </div>
+                  <div 
+                    className={`submenu-item ${isActive('/admin/devices') ? 'active-sub' : ''}`}
+                    onClick={() => handleNavigate('/admin/devices')}
+                  >
+                    Quản lý thiết bị
+                  </div>
+                  <div 
+                    className={`submenu-item ${isActive('/admin/device-logs') ? 'active-sub' : ''}`}
+                    onClick={() => handleNavigate('/admin/device-logs')}
+                  >
+                    Sổ theo dõi thiết bị
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div 
+              className={`menu-item ${isActive('/manager/import') ? 'active' : ''}`}
+              onClick={() => handleNavigate('/manager/import')}
+            >
+              <div className="icon-circle">
+                <FileUp size={20} />
+              </div>
+              {isExpanded && <span className="menu-text">Import file dữ liệu</span>}
+            </div>
+          </>
+        )}
       </nav>
     </aside>
   );

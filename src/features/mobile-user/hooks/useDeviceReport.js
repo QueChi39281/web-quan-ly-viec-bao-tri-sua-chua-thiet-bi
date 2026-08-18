@@ -56,11 +56,6 @@ export function useDeviceReport() {
     }
   };
 
-  const handleQRScanMock = () => {
-    alert("Đang kích hoạt Camera quét mã QR dán trên thiết bị...");
-    setFormData(prev => ({ ...prev, deviceId: 'DEV-LP_03' }));
-  };
-
   const handleConfirmCompletion = async (id) => {
     const response = await reportService.approveCompletion(id, "APPROVED");
     if (response.success) {
@@ -76,7 +71,6 @@ export function useDeviceReport() {
     formData,
     setFormData,
     handleSubmitReport,
-    handleQRScanMock,
     handleConfirmCompletion
   };
 }

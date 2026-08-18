@@ -5,7 +5,7 @@ import ApproveModal from './components/ApproveModal';
 import RejectModal from './components/RejectModal';
 import Pagination from '../tickets/components/Pagination';
 import ExportExcelButton from '../../components/ExportExcelButton';
-import { MOCK_ACCEPTANCE_REQUESTS } from '../../constants/acceptanceMockData'; 
+import { getCurrentEmployeeId, maintenanceApi } from '../../services/api';
 import './AcceptancePage.css';
 
 const PAGE_SIZE = 30;
@@ -52,11 +52,6 @@ export default function AcceptancePage() {
   const [selectedUserConfirmFilter, setSelectedUserConfirmFilter] = useState('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const [sortConfig, setSortConfig] = useState({ key: 'createdAt', direction: 'desc' });
-
-  // Nạp dữ liệu từ file mock
-  useEffect(() => {
-    setRequests(MOCK_ACCEPTANCE_REQUESTS);
-  }, []);
 
   const handleSort = (key) => {
     setSortConfig(prev => ({
@@ -116,20 +111,38 @@ export default function AcceptancePage() {
     setIsRejectOpen(true);
   };
 
-  const handleConfirmApprove = (ticket, evaluation) => {
-    setRequests(prev => prev.map(item => 
-      item.id === ticket.id ? { ...item, status: 'APPROVED', evaluation } : item
-    ));
-    setIsApproveOpen(false);
-    setSelectedTicket(null);
+  const handleConfirmApprove = async (ticket, evaluation) => {
+    try {
+      await maintenanceApi.approveAcceptanceReport(ticket.id, {
+        approved_by: Number(getCurrentEmployeeId()) || 1,
+        status: 'success'
+      });
+      setRequests(prev => prev.map(item =>
+        item.id === ticket.id ? { ...item, status: 'success', evaluation } : item
+      ));
+      setIsApproveOpen(false);
+      setSelectedTicket(null);
+    } catch (error) {
+      console.error('Failed to approve acceptance report:', error);
+      alert('Không thể duyệt biên bản nghiệm thu.');
+    }
   };
 
-  const handleConfirmReject = (ticket, reason) => {
-    setRequests(prev => prev.map(item => 
-      item.id === ticket.id ? { ...item, status: 'REJECTED', rejectReason: reason } : item
-    ));
-    setIsRejectOpen(false);
-    setSelectedTicket(null);
+  const handleConfirmReject = async (ticket, reason) => {
+    try {
+      await maintenanceApi.approveAcceptanceReport(ticket.id, {
+        approved_by: Number(getCurrentEmployeeId()) || 1,
+        status: 'fail'
+      });
+      setRequests(prev => prev.map(item =>
+        item.id === ticket.id ? { ...item, status: 'fail', rejectReason: reason } : item
+      ));
+      setIsRejectOpen(false);
+      setSelectedTicket(null);
+    } catch (error) {
+      console.error('Failed to reject acceptance report:', error);
+      alert('Không thể từ chối biên bản nghiệm thu.');
+    }
   };
 
   const renderSortArrow = (key) => {

@@ -3,123 +3,49 @@ import ManagerSidebar from '../../components/ManagerSidebar';
 import HeaderInfo from '../../components/HeaderInfo';
 import ExportExcelButton from '../../components/ExportExcelButton';
 import SupplyTableRow from './SupplyTableRow';
+import { inventoryApi } from '../../services/api';
 import './SupplyManagementPage.css';
 
 const ITEMS_PER_PAGE = 20;
 
-export const INITIAL_SUPPLIES = [
-  {
-    id: 1,
-    selected: false,
-    supplyName: 'Hộp mực in HP 83A (CF283A)',
-    supplyCode: 'VT-VP01',
-    supplier: 'Công ty Máy tính & Thiết bị Lê Bảo Minh',
-    importQuantity: 50,
-    remainingQuantity: 12
-  },
-  {
-    id: 2,
-    selected: false,
-    supplyName: 'Giấy in A4 Double A 70gsm (Thùng 5 ram)',
-    supplyCode: 'VT-VP02',
-    supplier: 'Văn phòng phẩm Hồng Hà',
-    importQuantity: 100,
-    remainingQuantity: 35
-  },
-  {
-    id: 3,
-    selected: false,
-    supplyName: 'Cụm Drum máy photocopy Ricoh MP 3054',
-    supplyCode: 'VT-VP03',
-    supplier: 'Công ty Phú Sơn Copier',
-    importQuantity: 15,
-    remainingQuantity: 3
-  },
-  {
-    id: 4,
-    selected: false,
-    supplyName: 'Dây cáp mạng AMP/CommScope Cat6 (Cuộn 305m)',
-    supplyCode: 'VT-VP04',
-    supplier: 'Thiết bị Mạng MTC',
-    importQuantity: 10,
-    remainingQuantity: 2
-  },
-  {
-    id: 5,
-    selected: false,
-    supplyName: 'Hạt mạng RJ45 Cat6 CommScope (Hộp 100 hạt)',
-    supplyCode: 'VT-VP05',
-    supplier: 'Thiết bị Mạng MTC',
-    importQuantity: 20,
-    remainingQuantity: 8
-  },
-  {
-    id: 6,
-    selected: false,
-    supplyName: 'Chuột không dây Logitech B100 USB',
-    supplyCode: 'VT-VP06',
-    supplier: 'Phong Vũ Computer',
-    importQuantity: 60,
-    remainingQuantity: 15
-  },
-  {
-    id: 7,
-    selected: false,
-    supplyName: 'Bàn phím có dây Logitech K120',
-    supplyCode: 'VT-VP07',
-    supplier: 'Phong Vũ Computer',
-    importQuantity: 40,
-    remainingQuantity: 10
-  },
-  {
-    id: 8,
-    selected: false,
-    supplyName: 'Ổ cứng SSD Kingston 240GB 2.5 inch',
-    supplyCode: 'VT-VP08',
-    supplier: 'Công ty tin học Vĩnh Xuân',
-    importQuantity: 30,
-    remainingQuantity: 6
-  },
-  {
-    id: 9,
-    selected: false,
-    supplyName: 'Thanh RAM Kingston 8GB DDR4 3200MHz',
-    supplyCode: 'VT-VP09',
-    supplier: 'Công ty tin học Vĩnh Xuân',
-    importQuantity: 25,
-    remainingQuantity: 9
-  },
-  {
-    id: 10,
-    selected: false,
-    supplyName: 'Bình ắc quy UPS APC 12V-7.2Ah',
-    supplyCode: 'VT-VP10',
-    supplier: 'Tập đoàn Nguyên Kim UPS',
-    importQuantity: 20,
-    remainingQuantity: 4
-  },
-  {
-    id: 11,
-    selected: false,
-    supplyName: 'Bóng đèn máy chiếu Panasonic PT-LB386',
-    supplyCode: 'VT-VP11',
-    supplier: 'Thiết bị Số Đại Nam',
-    importQuantity: 8,
-    remainingQuantity: 2
-  },
-  {
-    id: 12,
-    selected: false,
-    supplyName: 'Bộ vệ sinh máy tính & màn hình RP7 + Bọt biển',
-    supplyCode: 'VT-VP12',
-    supplier: 'Văn phòng phẩm Hà Nội',
-    importQuantity: 50,
-    remainingQuantity: 22
-  }
-];
-
 export default function SupplyManagementPage() {
-  const [supplies, setSupplies] = useState(INITIAL_SUPPLIES);
+  const [supplies, setSupplies] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchSupplies = async () => {
+      try {
+        setLoading(true);
+        const response = await inventoryApi.getItems({ limit: 100 });
+        const rawData = Array.isArray(response) ? response : response?.data || response?.items || [];
+
+        const mapped = (Array.isArray(rawData) ? rawData : []).map((inventory, index) => {
+          const item = inventory?.item || inventory || {};
+          const quantity = Number(inventory?.quantity ?? item?.quantity ?? inventory?.stock ?? 0);
+          const supplierName = inventory?.supplier?.name || inventory?.supplierName || item?.supplierName || 'N/A';
+
+          return {
+            id: inventory?.id || item?.id || item?._id || index + 1,
+            selected: false,
+            supplyName: item?.name || inventory?.name || item?.supplyName || 'N/A',
+            supplyCode: item?.code || inventory?.code || item?.itemCode || item?.supplyCode || `VT-${index + 1}`,
+            supplier: supplierName,
+            importQuantity: quantity,
+            remainingQuantity: quantity,
+          };
+        });
+
+        setSupplies(mapped);
+      } catch (error) {
+        console.error('Không thể tải vật tư từ API:', error);
+        setSupplies([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSupplies();
+  }, []);
   const [editingRowId, setEditingRowId] = useState(null);
   const [backupRow, setBackupRow] = useState(null);
 
@@ -313,16 +239,76 @@ export default function SupplyManagementPage() {
     setBackupRow(JSON.parse(JSON.stringify(selected[0])));
   };
 
-  const handleSavePage = () => {
+  const handleSavePage = async () => {
     if (editingRowId === null) {
       alert("Không có dữ liệu nào đang trong trạng thái chỉnh sửa.");
       return;
     }
 
-    if (window.confirm("Bạn có chắc chắn muốn lưu thông tin vật tư này không?")) {
+    const targetRow = supplies.find((item) => item.id === editingRowId);
+    if (!targetRow) {
+      alert("Dữ liệu đang chỉnh sửa không tồn tại.");
+      return;
+    }
+
+    const isNewRow = typeof targetRow.id === 'number' && targetRow.id > 1_000_000_000;
+    const payload = {
+      quantity: Number(targetRow.importQuantity ?? targetRow.remainingQuantity ?? 0),
+      item: {
+        code: String(targetRow.supplyCode || '').trim() || `VT-${Date.now()}`,
+        name: String(targetRow.supplyName || '').trim(),
+        unit: 'Cái',
+        minimum_stock: Number(targetRow.remainingQuantity ?? 0),
+      },
+      supplier: {
+        name: String(targetRow.supplier || '').trim() || 'N/A',
+      },
+      manufacturer: {
+        name: 'N/A',
+      },
+    };
+
+    if (!payload.item.name) {
+      alert('Tên vật tư không được để trống.');
+      return;
+    }
+
+    const confirmSave = window.confirm('Bạn có chắc chắn muốn lưu thông tin vật tư này không?');
+    if (!confirmSave) return;
+
+    try {
+      const response = isNewRow
+        ? await inventoryApi.createInventory(payload)
+        : await inventoryApi.updateInventory(targetRow.id, payload);
+
+      const createdOrUpdated = response?.data || response;
+      const serverItem = createdOrUpdated?.item || createdOrUpdated || null;
+
+      setSupplies((prev) => prev.map((item) => {
+        if (item.id !== editingRowId) return item;
+
+        const nextItem = {
+          ...item,
+          supplyName: serverItem?.name || item.supplyName,
+          supplyCode: serverItem?.code || item.supplyCode,
+          supplier: createdOrUpdated?.supplier?.name || item.supplier,
+          importQuantity: Number(createdOrUpdated?.quantity ?? item.importQuantity ?? 0),
+          remainingQuantity: Number(createdOrUpdated?.quantity ?? item.remainingQuantity ?? 0),
+        };
+
+        if (createdOrUpdated?.id) {
+          nextItem.id = createdOrUpdated.id;
+        }
+
+        return nextItem;
+      }));
+
       setEditingRowId(null);
       setBackupRow(null);
-      alert("Đã lưu thông tin vật tư thành công!");
+      alert('Đã lưu thông tin vật tư thành công!');
+    } catch (error) {
+      console.error('Lỗi lưu vật tư:', error);
+      alert('Không thể lưu vật tư lên server. Vui lòng thử lại.');
     }
   };
 

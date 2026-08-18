@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Check, Bell, CheckCheck, Inbox } from 'lucide-react';
-import { notificationApi } from '../../../services/api.js';
+import {
+  notificationApi,
+  normalizeNotificationList,
+  getCurrentEmployeeId,
+} from '../../../services/api.js';
 import './NotificationPopup.css';
 
 export default function NotificationPopup({ isOpen, onClose, onUnreadChange }) {
@@ -12,39 +16,20 @@ export default function NotificationPopup({ isOpen, onClose, onUnreadChange }) {
   const fetchNotifications = async () => {
     setLoading(true);
     try {
-      const response = await notificationApi.getAll();
-      const data = response.data?.data || response.data || [];
-      const list = Array.isArray(data) ? data : [];
+      const employeeId = getCurrentEmployeeId();
+      const response = employeeId
+        ? await notificationApi.getEmployeeNotifications(employeeId)
+        : await notificationApi.getAll();
+      const data = Array.isArray(response)
+        ? response
+        : response?.data?.data || response?.data || response?.items || [];
+      const list = normalizeNotificationList(data, employeeId || getCurrentEmployeeId());
       setNotifications(list);
       updateUnreadCount(list);
     } catch (error) {
       console.error('Lỗi khi lấy danh sách thông báo:', error);
-      // Fallback dữ liệu mẫu nếu API bị lỗi/chưa sẵn sàng
-      const mockData = [
-        {
-          id: 1,
-          title: 'Yêu cầu bảo trì mới',
-          content: 'Thùng máy nén khí #02 báo lỗi áp suất vượt ngưỡng.',
-          is_read: false,
-          createdAt: '10 phút trước',
-        },
-        {
-          id: 2,
-          title: 'Lịch bảo dưỡng định kỳ',
-          content: 'Hệ thống cần kiểm tra định kỳ vào 17:00 chiều nay.',
-          is_read: false,
-          createdAt: '1 giờ trước',
-        },
-        {
-          id: 3,
-          title: 'Đăng nhập thành công',
-          content: 'Tài khoản của bạn vừa đăng nhập trên thiết bị mới.',
-          is_read: true,
-          createdAt: '1 ngày trước',
-        },
-      ];
-      setNotifications(mockData);
-      updateUnreadCount(mockData);
+      setNotifications([]);
+      updateUnreadCount([]);
     } finally {
       setLoading(false);
     }
@@ -79,37 +64,59 @@ export default function NotificationPopup({ isOpen, onClose, onUnreadChange }) {
   // 3. Cập nhật số lượng chưa đọc ra ngoài HeaderInfo
   const updateUnreadCount = (list) => {
     if (onUnreadChange) {
-      const unread = list.filter((item) => !item.is_read).length;
+      const unread = Array.isArray(list) ? list.filter((item) => !item.is_read).length : 0;
       onUnreadChange(unread);
     }
   };
 
-  // 4. Đánh dấu 1 thông báo là đã đọc
+  // 4. Đánh dấu 1 thông báo là đã đọc - GỬI API NGAY
   const handleMarkAsRead = async (id, e) => {
     e.stopPropagation();
     try {
+      console.log(`[UI Mobile] User marking notification ${id} as read`);
+      // FIX: Không truyền { is_read: true } làm tham số thứ 2, chỉ truyền ID
       await notificationApi.markAsRead(id);
-    } catch (error) {
-      console.error('Lỗi đánh dấu đã đọc:', error);
-    } finally {
-      const updatedList = notifications.map((item) =>
-        item.id === id ? { ...item, is_read: true } : item
-      );
+      
+      // Sau khi API thành công, refetch toàn bộ list để đảm bảo cập nhật từ DB
+      const employeeId = getCurrentEmployeeId();
+      const response = employeeId
+        ? await notificationApi.getEmployeeNotifications(employeeId)
+        : await notificationApi.getAll();
+      const data = Array.isArray(response)
+        ? response
+        : response?.data?.data || response?.data || response?.items || [];
+      const updatedList = normalizeNotificationList(data, employeeId || getCurrentEmployeeId());
       setNotifications(updatedList);
       updateUnreadCount(updatedList);
+    } catch (error) {
+      console.error('Lỗi đánh dấu đã đọc:', error);
+      // Refetch để lấy trạng thái từ server khi có lỗi
+      fetchNotifications();
     }
   };
 
-  // 5. Đánh dấu tất cả là đã đọc
+  // 5. Đánh dấu tất cả là đã đọc - GỬI API NGAY
   const handleMarkAllAsRead = async () => {
     try {
-      await notificationApi.markAllAsRead();
-    } catch (error) {
-      console.error('Lỗi đọc tất cả:', error);
-    } finally {
-      const updatedList = notifications.map((item) => ({ ...item, is_read: true }));
+      console.log(`[UI Mobile] User marking ALL notifications as read`);
+      const employeeId = getCurrentEmployeeId();
+      // Truyền employeeId trực tiếp, không phải object
+      await notificationApi.markAllAsRead(employeeId);
+      
+      // Sau khi API thành công, refetch toàn bộ list từ DB
+      const response = employeeId
+        ? await notificationApi.getEmployeeNotifications(employeeId)
+        : await notificationApi.getAll();
+      const data = Array.isArray(response)
+        ? response
+        : response?.data?.data || response?.data || response?.items || [];
+      const updatedList = normalizeNotificationList(data, employeeId || getCurrentEmployeeId());
       setNotifications(updatedList);
       updateUnreadCount(updatedList);
+    } catch (error) {
+      console.error('Lỗi đọc tất cả:', error);
+      // Refetch để lấy trạng thái từ server khi có lỗi
+      fetchNotifications();
     }
   };
 

@@ -178,6 +178,39 @@
   transform: scale(0.95);
 }
 
+.device-search-wrap {
+  position: relative;
+}
+
+.device-suggestion-box {
+  margin-top: 8px;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  background: #f8fbff;
+  overflow: hidden;
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.08);
+}
+
+.device-suggestion-item {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: #0f172a;
+  cursor: pointer;
+}
+
+.device-suggestion-item:last-child {
+  border-bottom: none;
+}
+
+.device-suggestion-item:hover {
+  background: #e0f2fe;
+}
+
 /* Nút Quét QR Floating */
 .qr-floating-wrapper {
   position: absolute;
@@ -220,6 +253,176 @@
   color: #2563eb; /* Chữ "Quét mã QR" màu xanh biển */
   margin-top: 6px;
   white-space: nowrap;
+}
+
+.qr-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.64);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.qr-modal-card {
+  width: min(92vw, 420px);
+  background: #fff;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.22);
+}
+
+.qr-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #eff6ff, #dbeafe);
+  border-bottom: 1px solid #dbeafe;
+}
+
+.qr-modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #1d4ed8;
+}
+
+.qr-modal-close {
+  border: none;
+  background: transparent;
+  color: #1e293b;
+  font-size: 28px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.qr-camera-wrap {
+  position: relative;
+  background: #0f172a;
+  width: 100%;
+  height: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.qr-camera-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #111827;
+  transform: scaleX(1.06);
+}
+
+.qr-scan-frame {
+  position: absolute;
+  width: 68%;
+  height: 68%;
+  border-radius: 18px;
+  box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.45);
+  border: 2px solid rgba(147, 197, 253, 0.9);
+  background: transparent;
+}
+
+.scan-corner {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  border-color: #7dd3fc;
+  border-style: solid;
+  box-shadow: 0 0 8px rgba(125, 211, 252, 0.7);
+}
+
+.scan-corner.top-left {
+  top: -2px;
+  left: -2px;
+  border-width: 4px 0 0 4px;
+  border-top-left-radius: 10px;
+}
+
+.scan-corner.top-right {
+  top: -2px;
+  right: -2px;
+  border-width: 4px 4px 0 0;
+  border-top-right-radius: 10px;
+}
+
+.scan-corner.bottom-left {
+  bottom: -2px;
+  left: -2px;
+  border-width: 0 0 4px 4px;
+  border-bottom-left-radius: 10px;
+}
+
+.scan-corner.bottom-right {
+  bottom: -2px;
+  right: -2px;
+  border-width: 0 4px 4px 0;
+  border-bottom-right-radius: 10px;
+}
+
+.scan-laser {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 50%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #7dd3fc, #dbeafe, transparent);
+  box-shadow: 0 0 10px rgba(125, 211, 252, 0.9);
+  animation: qr-scan-move 2.4s linear infinite;
+}
+
+@keyframes qr-scan-move {
+  0% { transform: translateY(-110px); opacity: 0.6; }
+  50% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(110px); opacity: 0.6; }
+}
+
+.qr-error-message {
+  padding: 12px 16px 0;
+  color: #b91c1c;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.qr-actions-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+}
+
+.qr-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 10px 12px;
+  cursor: pointer;
+  border-radius: 10px;
+  border: 2px solid #2563eb;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.qr-upload-btn input {
+  display: none;
+}
+
+.qr-modal-secondary {
+  border: none;
+  background: #e2e8f0;
+  color: #1e293b;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
 }
 
 /* ==========================================

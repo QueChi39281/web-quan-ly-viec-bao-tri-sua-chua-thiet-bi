@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { MOCK_PHONE_DEVICES, MOCK_OFFICE_DEVICES, MOCK_ALL_DEVICES } from '../../../constants/mockDataTech';
+import { deviceApi, maintenanceApi } from '../../../services/api';
 
 // Map Mock Data thiết bị thành cấu trúc Task của kỹ thuật viên
 const formatDeviceToTask = (device, overrideStatus = null) => ({
@@ -19,30 +19,48 @@ const formatDeviceToTask = (device, overrideStatus = null) => ({
   serialNumber: device.serialNumber
 });
 
-// Khởi tạo các danh sách công việc từ Mock Data Thiết Bị
-const INITIAL_TODAY_TASKS = MOCK_PHONE_DEVICES
-  .filter(d => d.priority === 'HIGH' || d.status === 'Chờ xử lý')
-  .slice(0, 3)
-  .map(d => formatDeviceToTask(d, 'Chờ xử lý'));
-
-const INITIAL_UNASSIGNED_TASKS = MOCK_ALL_DEVICES
-  .filter(d => d.status === 'Chờ xử lý' || d.status === 'Chưa phân công')
-  .map(d => formatDeviceToTask(d, 'Chưa phân công'));
-
-const INITIAL_ASSIGNED_TASKS = MOCK_OFFICE_DEVICES
-  .filter(d => d.status === 'Đang sửa chữa' || d.status === 'Đang sử dụng')
-  .slice(0, 2)
-  .map(d => formatDeviceToTask(d, 'Đang sửa chữa'));
+// Initialize empty task lists (will be populated by API)
+const INITIAL_TODAY_TASKS = [];
+const INITIAL_UNASSIGNED_TASKS = [];
+const INITIAL_ASSIGNED_TASKS = [];
 
 export const useTechnicianDashboard = () => {
   const [unreadCount] = useState(3);
-  const [loading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [activeNavMenu, setActiveNavMenu] = useState('home'); // 'home' | 'schedule' | 'unassigned' | 'assigned'
 
-  // Dữ liệu Công việc (Khởi tạo từ mock data thiết bị)
-  const [todayTasks] = useState(INITIAL_TODAY_TASKS);
+  // Dữ liệu Công việc (Khởi tạo từ API)
+  const [todayTasks, setTodayTasks] = useState(INITIAL_TODAY_TASKS);
   const [unassignedTasks, setUnassignedTasks] = useState(INITIAL_UNASSIGNED_TASKS);
   const [assignedTasks, setAssignedTasks] = useState(INITIAL_ASSIGNED_TASKS);
+
+  // Fetch tasks from API on mount
+  useEffect(() => {
+    const fetchTasks = async () => {
+      try {
+        setLoading(true);
+        // Fetch unassigned tasks
+        const unassignedRes = await maintenanceApi.getRequests({ status: 'UNASSIGNED' });
+        const unassignedData = (Array.isArray(unassignedRes) ? unassignedRes : unassignedRes.data || []).map(d => formatDeviceToTask(d, 'Chưa phân công'));
+        setUnassignedTasks(unassignedData);
+
+        // Fetch assigned tasks
+        const assignedRes = await maintenanceApi.getRequests({ status: 'IN_PROGRESS' });
+        const assignedData = (Array.isArray(assignedRes) ? assignedRes : assignedRes.data || []).slice(0, 2).map(d => formatDeviceToTask(d, 'Đang sửa chữa'));
+        setAssignedTasks(assignedData);
+
+        // Fetch today's high priority tasks
+        const todayRes = await maintenanceApi.getRequests({ priority: 'HIGH' });
+        const todayData = (Array.isArray(todayRes) ? todayRes : todayRes.data || []).slice(0, 3).map(d => formatDeviceToTask(d, 'Chờ xử lý'));
+        setTodayTasks(todayData);
+      } catch (error) {
+        console.error('Failed to fetch technician tasks:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchTasks();
+  }, []);
 
   // Bộ lọc & Sắp xếp cho bảng
   const [searchTerm, setSearchTerm] = useState('');
