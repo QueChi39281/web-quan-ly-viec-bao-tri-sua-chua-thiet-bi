@@ -10,6 +10,7 @@ const ITEMS_PER_PAGE = 20;
 
 export default function DeviceTrackingPage() {
   const [logs, setLogs] = useState([]);
+  const [deviceList, setDeviceList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingRowId, setEditingRowId] = useState(null);
   const [backupRow, setBackupRow] = useState(null);
@@ -31,59 +32,75 @@ export default function DeviceTrackingPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [timeSortOrder, setTimeSortOrder] = useState('desc'); 
 
+  const setNoDeviceInfo = useCallback((message = 'Chưa có thiết bị') => {
+    setSelectedDeviceInfo({
+      deviceName: message,
+      deviceCode: '-',
+      supplier: 'N/A',
+      info: '',
+      currentStatus: 'Không có dữ liệu',
+      currentLocation: 'N/A'
+    });
+  }, []);
+
+  const loadHistoryForDevice = useCallback(async (selectedDevice) => {
+    if (!selectedDevice) {
+      setLogs([]);
+      setNoDeviceInfo('Không có thiết bị phù hợp');
+      return;
+    }
+
+    setSelectedDeviceInfo({
+      deviceName: selectedDevice.model || selectedDevice.name || selectedDevice.serial_number || 'N/A',
+      deviceCode: selectedDevice.serial_number || selectedDevice.code || '-',
+      supplier: selectedDevice.supplier_name || selectedDevice.supplier?.name || 'N/A',
+      info: selectedDevice.specifications || selectedDevice.category?.name || selectedDevice.model || '',
+      currentStatus: selectedDevice.state || 'Hoạt động bình thường',
+      currentLocation: selectedDevice.location || selectedDevice.current_location || selectedDevice.assigned_location || 'N/A',
+    });
+
+    try {
+      const historyRes = await deviceApi.getDeviceStateHistories(selectedDevice.id || selectedDevice._id);
+      const history = Array.isArray(historyRes) ? historyRes : historyRes?.data || historyRes?.items || [];
+
+      setLogs((Array.isArray(history) ? history : []).map((item, index) => ({
+        id: item.id || item._id || index + 1,
+        selected: false,
+        actionType: item.type || item.actionType || 'Bảo trì',
+        transferDate: item.date || item.transferDate || item.createdAt || item.created_at || new Date().toISOString().slice(0, 10),
+        eventTime: item.eventTime || item.time || item.createdAt || item.created_at || new Date().toISOString(),
+        maintenanceContent: item.description || item.maintenanceContent || item.content || 'Không có mô tả',
+        cost: Number(item.cost ?? item.totalCost ?? 0),
+        deviceStatus: item.status || item.deviceStatus || 'Hoạt động bình thường',
+      })));
+    } catch (error) {
+      console.error('Không thể tải lịch sử thiết bị từ API:', error);
+      setLogs([]);
+    }
+  }, [setNoDeviceInfo]);
+
   useEffect(() => {
     const fetchDeviceHistory = async () => {
       try {
         setLoading(true);
         const devicesRes = await deviceApi.getDevices({ limit: 20 });
         const devices = Array.isArray(devicesRes) ? devicesRes : devicesRes?.data || devicesRes?.items || [];
+        setDeviceList(devices);
+
         const selectedDevice = Array.isArray(devices) && devices.length > 0 ? devices[0] : null;
-
-        if (!selectedDevice) {
-          setLogs([]);
-          setSelectedDeviceInfo({
-            deviceName: 'Chưa có thiết bị',
-            deviceCode: '-',
-            supplier: 'N/A',
-            info: '',
-            currentStatus: 'Không có dữ liệu',
-            currentLocation: 'N/A'
-          });
-          return;
-        }
-
-        setSelectedDeviceInfo({
-          deviceName: selectedDevice.deviceName || selectedDevice.name || 'N/A',
-          deviceCode: selectedDevice.deviceCode || selectedDevice.code || '-',
-          supplier: selectedDevice.supplierName || selectedDevice.supplier || 'N/A',
-          info: selectedDevice.info || selectedDevice.description || selectedDevice.model || '',
-          currentStatus: selectedDevice.status || 'Hoạt động bình thường',
-          currentLocation: selectedDevice.location || selectedDevice.currentLocation || 'N/A',
-        });
-
-        const historyRes = await deviceApi.getDeviceStateHistories(selectedDevice.id || selectedDevice._id);
-        const history = Array.isArray(historyRes) ? historyRes : historyRes?.data || historyRes?.items || [];
-
-        setLogs((Array.isArray(history) ? history : []).map((item, index) => ({
-          id: item.id || item._id || index + 1,
-          selected: false,
-          actionType: item.type || item.actionType || 'Bảo trì',
-          transferDate: item.date || item.transferDate || item.createdAt || item.created_at || new Date().toISOString().slice(0, 10),
-          eventTime: item.eventTime || item.time || item.createdAt || item.created_at || new Date().toISOString(),
-          maintenanceContent: item.description || item.maintenanceContent || item.content || 'Không có mô tả',
-          cost: Number(item.cost ?? item.totalCost ?? 0),
-          deviceStatus: item.status || item.deviceStatus || 'Hoạt động bình thường',
-        })));
+        await loadHistoryForDevice(selectedDevice);
       } catch (error) {
-        console.error('Không thể tải lịch sử thiết bị từ API:', error);
+        console.error('Không thể tải danh sách thiết bị từ API:', error);
+        setDeviceList([]);
         setLogs([]);
+        setNoDeviceInfo('Chưa có thiết bị');
       } finally {
         setLoading(false);
       }
     };
 
     fetchDeviceHistory();
-  }, []);
+  }, [loadHistoryForDevice, setNoDeviceInfo]);
 
   const excelColumns = useMemo(() => [
     { header: 'STT', key: 'stt', align: 'center', formatter: (_, __, idx) => idx + 1 },
@@ -124,9 +141,35 @@ export default function DeviceTrackingPage() {
     }
   };
 
-  const handleSearch = () => {
+  const handleSearch = async () => {
     if (!checkUnsavedChanges()) return;
-    alert(`Đã tìm kiếm theo Tên TB: "${searchFilter.deviceName}" - Mã TB: "${searchFilter.deviceCode}"`);
+
+    const keywordName = searchFilter.deviceName.trim().toLowerCase();
+    const keywordCode = searchFilter.deviceCode.trim().toLowerCase();
+
+    const matchedDevice = deviceList.find((device) => {
+      const deviceName = (device.model || device.name || device.serial_number || '').toString().toLowerCase();
+      const deviceCode = (device.serial_number || device.code || '').toString().toLowerCase();
+
+      const matchesName = !keywordName || deviceName.includes(keywordName);
+      const matchesCode = !keywordCode || deviceCode.includes(keywordCode);
+      return matchesName && matchesCode;
+    }) || (deviceList.length > 0 ? deviceList[0] : null);
+
+    if (!matchedDevice && (keywordName || keywordCode)) {
+      setLogs([]);
+      setNoDeviceInfo('Không có thiết bị phù hợp');
+      setCurrentPage(1);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await loadHistoryForDevice(matchedDevice);
+      setCurrentPage(1);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Sắp xếp danh sách theo thời gian

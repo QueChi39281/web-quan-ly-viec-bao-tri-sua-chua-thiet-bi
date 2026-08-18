@@ -22,11 +22,11 @@ export default function AssetListPage() {
         const mapped = (Array.isArray(data) ? data : []).map((device, index) => ({
           id: device.id || device._id || index + 1,
           selected: false,
-          assetName: device.deviceName || device.name || device.assetName || 'N/A',
-          assetCode: device.deviceCode || device.code || device.assetCode || `TB-${index + 1}`,
-          supplier: device.supplierName || device.supplier || device.manufacturerName || device.vendor || 'N/A',
-          location: device.location || device.currentLocation || device.assignedLocation || 'Chưa có vị trí',
-          info: device.info || device.description || device.model || device.specification || '',
+          assetName: device.model || device.name || device.serial_number || 'N/A',
+          assetCode: device.serial_number || device.code || device.model || `TB-${index + 1}`,
+          supplier: device.supplier_name || device.supplier?.name || device.manufacturer_name || 'N/A',
+          location: device.location || device.current_location || device.assigned_location || 'Chưa có vị trí',
+          info: device.specifications || device.category?.name || device.model || device.description || '',
         }));
 
         setAssets(mapped);

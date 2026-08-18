@@ -31,6 +31,10 @@ export default defineConfig({
         target: 'http://localhost:3000',
         changeOrigin: true,
       },
+      '/inventories': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
       '/audits': {
         target: 'http://localhost:3000',
         changeOrigin: true,
@@ -40,6 +44,10 @@ export default defineConfig({
         changeOrigin: true,
       },
       '/reports': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
+      '/maintenances': {
         target: 'http://localhost:3000',
         changeOrigin: true,
       },

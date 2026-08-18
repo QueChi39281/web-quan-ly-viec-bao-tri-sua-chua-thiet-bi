@@ -6,7 +6,7 @@ import FilterBar from './components/FilterBar';
 import ManagerSidebar from '../../components/ManagerSidebar';
 import HeaderInfo from '../../components/HeaderInfo';
 import ExportExcelButton from '../../components/ExportExcelButton';
-import { maintenanceApi, deviceApi, userApi } from '../../services/api';
+import { maintenanceApi, deviceApi, userApi, getCurrentEmployeeId } from '../../services/api';
 import { 
   DEVICE_OPTIONS, 
   STAFF_OPTIONS, 
@@ -46,11 +46,30 @@ export default function MaintenancePlanPage() {
     const fetchMaintenancePlans = async () => {
       try {
         setLoading(true);
-        const response = await maintenanceApi.getRequests({ status: 'PLANNING' });
-        const plans = (response.data || []).map(item => ({
-          ...item,
-          deviceCode: Array.isArray(item.deviceCodes) ? item.deviceCodes[0] || '' : (item.deviceCode || ''),
-          assignedStaffs: item.assignedStaffs || (item.staff ? [{ id: 'ST-1', name: item.staff, status: 'Sẵn sàng' }] : [])
+        // Lấy danh sách kế hoạch bảo trì từ API thật
+        const response = await maintenanceApi.getPlans({ limit: 100 });
+        const plansData = Array.isArray(response) ? response : response?.data || [];
+        
+        // Map dữ liệu từ API sang cấu trúc component
+        const plans = plansData.map(item => ({
+          id: item.id || item._id,
+          selected: false,
+          deviceType: item.plan_type === 'repair' ? 'Sửa chữa' : 'Bảo trì',
+          deviceCode: item.device_id ? `DEV-${item.device_id}` : 'N/A',
+          status: item.actual_end_at ? 'Hoàn thành' : item.actual_start_at ? 'Đang thực hiện' : 'Chờ thực hiện',
+          actionType: item.plan_type === 'repair' ? 'Sửa chữa' : 'Bảo trì',
+          content: item.description || '',
+          supplies: [],
+          cost: item.estimated_cost ? Number(item.estimated_cost) : 0,
+          assignedStaffs: Array.isArray(item.plan_assignments) 
+            ? item.plan_assignments.map(a => ({ id: a.employee_id, name: `EMP-${a.employee_id}`, status: a.availability_status || 'available' }))
+            : [],
+          startDate: item.planned_start_at ? item.planned_start_at.split('T')[0] : '',
+          endDate: item.planned_end_at ? item.planned_end_at.split('T')[0] : '',
+          actualStartDate: item.actual_start_at ? item.actual_start_at.split('T')[0] : '',
+          actualEndDate: item.actual_end_at ? item.actual_end_at.split('T')[0] : '',
+          planId: item.id,
+          autoInterval: null
         }));
         setRows(plans);
       } catch (error) {
@@ -553,16 +572,80 @@ export default function MaintenancePlanPage() {
     }));
   }, []);
 
-  const handleSavePage = () => {
+  const handleSavePage = async () => {
     if (editingRowId === null) {
       alert("Không có dữ liệu nào đang trong trạng thái chỉnh sửa.");
       return;
     }
 
+    const editingRow = rows.find(r => r.id === editingRowId);
+    if (!editingRow) {
+      alert("Không tìm thấy dòng đang chỉnh sửa!");
+      return;
+    }
+
     if (window.confirm("Bạn có chắc chắn muốn lưu nội dung này không?")) {
-      setEditingRowId(null);
-      setBackupRow(null);
-      alert("Đã lưu thành công!");
+      try {
+        // Chuẩn bị dữ liệu gửi lên API
+        const planData = {
+          created_by: parseInt(getCurrentEmployeeId()) || 2,
+          device_id: editingRow.deviceCode ? parseInt(editingRow.deviceCode.replace('DEV-', '')) : 1,
+          plan_type: editingRow.actionType === 'Sửa chữa' ? 'repair' : 'maintenance',
+          description: editingRow.content,
+          estimated_cost: editingRow.cost,
+          planned_start_at: `${editingRow.startDate}T08:00:00Z`,
+          planned_end_at: `${editingRow.endDate}T17:00:00Z`,
+          employee_ids: editingRow.assignedStaffs.map(s => parseInt(s.id.replace('EMP-', '')))
+        };
+
+        let result;
+        if (editingRow.planId) {
+          // Update existing plan
+          result = await maintenanceApi.updatePlan(editingRow.planId, {
+            description: editingRow.content,
+            employeesList: editingRow.assignedStaffs.map(s => ({
+              employee_id: parseInt(s.id.replace('EMP-', '')),
+              availability_status: 'available'
+            }))
+          });
+        } else {
+          // Create new plan
+          result = await maintenanceApi.createPlan(planData);
+        }
+
+        console.log('Save result:', result);
+        setEditingRowId(null);
+        setBackupRow(null);
+        alert("Đã lưu thành công!");
+        
+        // Refresh data
+        const response = await maintenanceApi.getPlans({ limit: 100 });
+        const plansData = Array.isArray(response) ? response : response?.data || [];
+        const plans = plansData.map(item => ({
+          id: item.id || item._id,
+          selected: false,
+          deviceType: item.plan_type === 'repair' ? 'Sửa chữa' : 'Bảo trì',
+          deviceCode: item.device_id ? `DEV-${item.device_id}` : 'N/A',
+          status: item.actual_end_at ? 'Hoàn thành' : item.actual_start_at ? 'Đang thực hiện' : 'Chờ thực hiện',
+          actionType: item.plan_type === 'repair' ? 'Sửa chữa' : 'Bảo trì',
+          content: item.description || '',
+          supplies: [],
+          cost: item.estimated_cost ? Number(item.estimated_cost) : 0,
+          assignedStaffs: Array.isArray(item.plan_assignments) 
+            ? item.plan_assignments.map(a => ({ id: a.employee_id, name: `EMP-${a.employee_id}`, status: a.availability_status || 'available' }))
+            : [],
+          startDate: item.planned_start_at ? item.planned_start_at.split('T')[0] : '',
+          endDate: item.planned_end_at ? item.planned_end_at.split('T')[0] : '',
+          actualStartDate: item.actual_start_at ? item.actual_start_at.split('T')[0] : '',
+          actualEndDate: item.actual_end_at ? item.actual_end_at.split('T')[0] : '',
+          planId: item.id,
+          autoInterval: null
+        }));
+        setRows(plans);
+      } catch (error) {
+        console.error('Error saving plan:', error);
+        alert(`Lỗi khi lưu: ${error.message}`);
+      }
     }
   };
 

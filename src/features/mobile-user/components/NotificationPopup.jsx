@@ -69,11 +69,15 @@ export default function NotificationPopup({ isOpen, onClose, onUnreadChange }) {
     }
   };
 
-  // 4. Đánh dấu 1 thông báo là đã đọc
+  // 4. Đánh dấu 1 thông báo là đã đọc - GỬI API NGAY
   const handleMarkAsRead = async (id, e) => {
     e.stopPropagation();
     try {
-      await notificationApi.markAsRead(id, { is_read: true });
+      console.log(`[UI Mobile] User marking notification ${id} as read`);
+      // FIX: Không truyền { is_read: true } làm tham số thứ 2, chỉ truyền ID
+      await notificationApi.markAsRead(id);
+      
+      // Sau khi API thành công, refetch toàn bộ list để đảm bảo cập nhật từ DB
       const employeeId = getCurrentEmployeeId();
       const response = employeeId
         ? await notificationApi.getEmployeeNotifications(employeeId)
@@ -86,14 +90,20 @@ export default function NotificationPopup({ isOpen, onClose, onUnreadChange }) {
       updateUnreadCount(updatedList);
     } catch (error) {
       console.error('Lỗi đánh dấu đã đọc:', error);
+      // Refetch để lấy trạng thái từ server khi có lỗi
+      fetchNotifications();
     }
   };
 
-  // 5. Đánh dấu tất cả là đã đọc
+  // 5. Đánh dấu tất cả là đã đọc - GỬI API NGAY
   const handleMarkAllAsRead = async () => {
     try {
-      await notificationApi.markAllAsRead();
+      console.log(`[UI Mobile] User marking ALL notifications as read`);
       const employeeId = getCurrentEmployeeId();
+      // Truyền employeeId trực tiếp, không phải object
+      await notificationApi.markAllAsRead(employeeId);
+      
+      // Sau khi API thành công, refetch toàn bộ list từ DB
       const response = employeeId
         ? await notificationApi.getEmployeeNotifications(employeeId)
         : await notificationApi.getAll();
@@ -105,6 +115,8 @@ export default function NotificationPopup({ isOpen, onClose, onUnreadChange }) {
       updateUnreadCount(updatedList);
     } catch (error) {
       console.error('Lỗi đọc tất cả:', error);
+      // Refetch để lấy trạng thái từ server khi có lỗi
+      fetchNotifications();
     }
   };
 

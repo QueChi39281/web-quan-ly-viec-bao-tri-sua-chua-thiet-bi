@@ -17,17 +17,23 @@ export default function SupplyManagementPage() {
       try {
         setLoading(true);
         const response = await inventoryApi.getItems({ limit: 100 });
-        const data = Array.isArray(response) ? response : response?.data || response?.items || [];
+        const rawData = Array.isArray(response) ? response : response?.data || response?.items || [];
 
-        const mapped = (Array.isArray(data) ? data : []).map((item, index) => ({
-          id: item.id || item._id || index + 1,
-          selected: false,
-          supplyName: item.name || item.supplyName || item.itemName || 'N/A',
-          supplyCode: item.code || item.itemCode || item.supplyCode || `VT-${index + 1}`,
-          supplier: item.supplierName || item.supplier || item.vendor || 'N/A',
-          importQuantity: Number(item.importQuantity ?? item.quantity ?? item.totalQuantity ?? 0),
-          remainingQuantity: Number(item.remainingQuantity ?? item.availableQuantity ?? item.stock ?? item.quantity ?? 0),
-        }));
+        const mapped = (Array.isArray(rawData) ? rawData : []).map((inventory, index) => {
+          const item = inventory?.item || inventory || {};
+          const quantity = Number(inventory?.quantity ?? item?.quantity ?? inventory?.stock ?? 0);
+          const supplierName = inventory?.supplier?.name || inventory?.supplierName || item?.supplierName || 'N/A';
+
+          return {
+            id: inventory?.id || item?.id || item?._id || index + 1,
+            selected: false,
+            supplyName: item?.name || inventory?.name || item?.supplyName || 'N/A',
+            supplyCode: item?.code || inventory?.code || item?.itemCode || item?.supplyCode || `VT-${index + 1}`,
+            supplier: supplierName,
+            importQuantity: quantity,
+            remainingQuantity: quantity,
+          };
+        });
 
         setSupplies(mapped);
       } catch (error) {
@@ -233,16 +239,76 @@ export default function SupplyManagementPage() {
     setBackupRow(JSON.parse(JSON.stringify(selected[0])));
   };
 
-  const handleSavePage = () => {
+  const handleSavePage = async () => {
     if (editingRowId === null) {
       alert("Không có dữ liệu nào đang trong trạng thái chỉnh sửa.");
       return;
     }
 
-    if (window.confirm("Bạn có chắc chắn muốn lưu thông tin vật tư này không?")) {
+    const targetRow = supplies.find((item) => item.id === editingRowId);
+    if (!targetRow) {
+      alert("Dữ liệu đang chỉnh sửa không tồn tại.");
+      return;
+    }
+
+    const isNewRow = typeof targetRow.id === 'number' && targetRow.id > 1_000_000_000;
+    const payload = {
+      quantity: Number(targetRow.importQuantity ?? targetRow.remainingQuantity ?? 0),
+      item: {
+        code: String(targetRow.supplyCode || '').trim() || `VT-${Date.now()}`,
+        name: String(targetRow.supplyName || '').trim(),
+        unit: 'Cái',
+        minimum_stock: Number(targetRow.remainingQuantity ?? 0),
+      },
+      supplier: {
+        name: String(targetRow.supplier || '').trim() || 'N/A',
+      },
+      manufacturer: {
+        name: 'N/A',
+      },
+    };
+
+    if (!payload.item.name) {
+      alert('Tên vật tư không được để trống.');
+      return;
+    }
+
+    const confirmSave = window.confirm('Bạn có chắc chắn muốn lưu thông tin vật tư này không?');
+    if (!confirmSave) return;
+
+    try {
+      const response = isNewRow
+        ? await inventoryApi.createInventory(payload)
+        : await inventoryApi.updateInventory(targetRow.id, payload);
+
+      const createdOrUpdated = response?.data || response;
+      const serverItem = createdOrUpdated?.item || createdOrUpdated || null;
+
+      setSupplies((prev) => prev.map((item) => {
+        if (item.id !== editingRowId) return item;
+
+        const nextItem = {
+          ...item,
+          supplyName: serverItem?.name || item.supplyName,
+          supplyCode: serverItem?.code || item.supplyCode,
+          supplier: createdOrUpdated?.supplier?.name || item.supplier,
+          importQuantity: Number(createdOrUpdated?.quantity ?? item.importQuantity ?? 0),
+          remainingQuantity: Number(createdOrUpdated?.quantity ?? item.remainingQuantity ?? 0),
+        };
+
+        if (createdOrUpdated?.id) {
+          nextItem.id = createdOrUpdated.id;
+        }
+
+        return nextItem;
+      }));
+
       setEditingRowId(null);
       setBackupRow(null);
-      alert("Đã lưu thông tin vật tư thành công!");
+      alert('Đã lưu thông tin vật tư thành công!');
+    } catch (error) {
+      console.error('Lỗi lưu vật tư:', error);
+      alert('Không thể lưu vật tư lên server. Vui lòng thử lại.');
     }
   };
 

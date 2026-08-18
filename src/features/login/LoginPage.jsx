@@ -75,20 +75,27 @@ export default function LoginPage() {
         password: formData.password,
       });
 
+      console.log('[LOGIN RESULT]', res);
+
       if (res?.success) {
-        const payload = res.data;
-        const userData = payload?.user;
-        const token = payload?.accessToken;
-        const refreshToken = payload?.refreshToken;
+        const payload = res?.data || res;
+        const authData = payload?.data || payload;
+        const userData = authData?.user || payload?.user;
+        const token = authData?.accessToken || payload?.accessToken;
+        const refreshToken = authData?.refreshToken || payload?.refreshToken;
 
         if (!userData || !userData.role) {
           throw new Error("Dữ liệu trả về không hợp lệ (thiếu user/role)");
         }
 
+        if (!token) {
+          throw new Error('Đăng nhập trả về token rỗng. Vui lòng kiểm tra gateway response.');
+        }
+
         // Lưu thông tin vào LocalStorage theo contract gateway thực tế
         const employeeId = userData.employee_id || userData.id;
         localStorage.setItem('accessToken', token);
-        localStorage.setItem('refreshToken', refreshToken);
+        localStorage.setItem('refreshToken', refreshToken || '');
         localStorage.setItem('employeeId', employeeId);
         localStorage.setItem('userId', employeeId);
         localStorage.setItem('userAccountId', userData.id || employeeId);

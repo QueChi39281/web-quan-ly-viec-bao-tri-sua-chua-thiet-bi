@@ -57,8 +57,28 @@ export default function AcceptancePage() {
   useEffect(() => {
     const fetchRequests = async () => {
       try {
-        const response = await maintenanceApi.getRequests({ status: 'PENDING_APPROVAL' });
-        setRequests(response.data || []);
+        // Lấy danh sách acceptance reports từ API thật
+        const response = await maintenanceApi.getAcceptanceReports({ status: 'pending', limit: 100 });
+        
+        const data = Array.isArray(response) ? response : response?.data || [];
+        
+        // Map dữ liệu từ API sang cấu trúc component
+        const mapped = data.map(item => ({
+          id: item.id || item._id,
+          deviceCode: item.device_id ? `DEV-${item.device_id}` : 'N/A',
+          deviceName: item.device_name || 'N/A',
+          employeeName: item.employee_name || item.created_by || 'N/A',
+          errorDescription: item.description || item.reason || '',
+          solution: item.solution || '',
+          usedComponents: item.used_components || item.components || '',
+          userConfirmation: item.user_confirmation || false,
+          createdAt: item.created_at || item.createdAt || new Date().toISOString(),
+          estimatedCost: item.estimated_cost || 0,
+          managerName: item.manager_name || item.approved_by || 'Chưa duyệt',
+          status: item.status || 'pending'
+        }));
+        
+        setRequests(mapped);
       } catch (error) {
         console.error('Failed to fetch acceptance requests:', error);
         setRequests([]);
