@@ -535,12 +535,17 @@
 
 .badge-device-single {
   display: inline-block;
+  max-width: 100%;
+  box-sizing: border-box;
   background-color: #eff6ff;
   color: var(--primary-dark);
   border: 1px solid #bfdbfe;
   font-weight: 700;
   padding: 3px 8px;
   border-radius: var(--radius-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .read-only-text {
@@ -851,6 +856,59 @@
 }
 
 .staff-empty-result {
+  padding: 10px;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.device-suggestions-dropdown {
+  position: fixed !important;
+  max-height: 220px;
+  overflow-y: auto;
+  background: var(--surface-main);
+  border: 1px solid var(--gray-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: 2147483647;
+  padding: 4px 0;
+}
+
+.device-suggestion-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--text-main);
+  text-align: left;
+  cursor: pointer;
+}
+
+.device-suggestion-item:hover,
+.device-suggestion-item:focus-visible {
+  background: var(--gray-bg);
+  outline: none;
+}
+
+.device-suggestion-item strong {
+  color: var(--primary-dark);
+  font-size: 0.75rem;
+}
+
+.device-suggestion-item span {
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.device-suggestions-empty {
   padding: 10px;
   color: var(--text-muted);
   font-size: 0.75rem;

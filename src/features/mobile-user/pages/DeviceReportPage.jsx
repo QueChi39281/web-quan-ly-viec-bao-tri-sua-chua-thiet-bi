@@ -16,9 +16,11 @@ export default function DeviceReportPage() {
     requestList,
     formData,
     setFormData,
+    loading,
     handleSubmitReport,
-    handleConfirmCompletion
+    handleConfirmCompletion,
   } = useDeviceReport();
+
   const [isScanOpen, setIsScanOpen] = useState(false);
 
   const handleQRScan = () => {
@@ -63,6 +65,7 @@ export default function DeviceReportPage() {
           setFormData={setFormData}
           onSubmit={handleSubmitReport}
           onScanQR={handleQRScan}
+          loading={loading}
         />
       ) : (
         <ManagementRequestForm
@@ -70,9 +73,11 @@ export default function DeviceReportPage() {
           setFormData={setFormData}
           onSubmit={handleSubmitReport}
           onScanQR={handleQRScan}
+          loading={loading}
         />
       )}
 
+      {/* Modal quét QR Code */}
       <QRScanModal
         isOpen={isScanOpen}
         onClose={() => setIsScanOpen(false)}
@@ -80,7 +85,11 @@ export default function DeviceReportPage() {
       />
 
       {/* 5. Request Table Component */}
-      <RequestTable list={requestList} onConfirm={handleConfirmCompletion} />
+      <RequestTable 
+        list={requestList} 
+        onConfirm={handleConfirmCompletion} 
+        loading={loading}
+      />
     </div>
   );
 }

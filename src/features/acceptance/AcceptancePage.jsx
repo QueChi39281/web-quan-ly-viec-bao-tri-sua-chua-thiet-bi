@@ -53,6 +53,34 @@ export default function AcceptancePage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [sortConfig, setSortConfig] = useState({ key: 'createdAt', direction: 'desc' });
 
+  useEffect(() => {
+    const loadAcceptanceReports = async () => {
+      try {
+        const response = await maintenanceApi.getAcceptanceReports({ status: 'pending', limit: 100 });
+        const reports = Array.isArray(response) ? response : response?.data || [];
+        setRequests(reports.map((report) => ({
+          id: report.id || report._id,
+          deviceCode: report.device_id ? `DEV-${report.device_id}` : 'N/A',
+          deviceName: report.device_name || 'N/A',
+          employeeName: report.employee_name || report.created_by_employee_id || 'N/A',
+          errorDescription: report.description || '',
+          solution: report.solution || '',
+          usedComponents: report.used_components || report.components || '',
+          userConfirmation: Boolean(report.user_confirmation),
+          createdAt: report.created_at || report.createdAt || '',
+          estimatedCost: Number(report.estimated_cost || 0),
+          managerName: report.manager_name || report.approved_by_employee_id || 'Chưa duyệt',
+          status: report.status || 'pending'
+        })));
+      } catch (error) {
+        console.error('Không thể tải danh sách biên bản nghiệm thu:', error);
+        setRequests([]);
+      }
+    };
+
+    loadAcceptanceReports();
+  }, []);
+
   const handleSort = (key) => {
     setSortConfig(prev => ({
       key,

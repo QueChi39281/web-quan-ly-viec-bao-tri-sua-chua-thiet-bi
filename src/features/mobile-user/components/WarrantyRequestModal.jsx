@@ -9,7 +9,6 @@ export default function WarrantyRequestModal({ isOpen, onClose, onSubmit, device
   const handleSubmit = (e) => {
     e.preventDefault();
     onSubmit({ deviceCode, reason });
-    alert("Đã gửi yêu cầu bảo hành tới quản lý thành công!");
     setReason('');
     onClose();
   };

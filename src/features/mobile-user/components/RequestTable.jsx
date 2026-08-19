@@ -18,7 +18,7 @@ export default function RequestTable({ list, onConfirm }) {
             {list.map((item, index) => (
               <tr key={item.id} className="hover:bg-blue-50/40 bg-cyan-50/20 transition-colors">
                 <td className="table-cell text-center text-gray-400">{index + 1}</td>
-                <td className="table-cell font-mono font-bold text-blue-600">{item.device.code}</td>
+                <td className="table-cell font-mono font-bold text-blue-600">{item.device?.code || item.deviceId || item.device_id || '-'}</td>
                 <td className="table-cell">
                   <span className={item.status === 'COMPLETED' ? 'status-badge-completed' : 'status-badge-pending'}>
                     {item.status === 'COMPLETED' ? 'Đã sửa xong' : 'Chờ duyệt'}

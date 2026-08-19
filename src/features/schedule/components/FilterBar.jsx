@@ -7,10 +7,11 @@ export default function FilterBar({
   filterForm, 
   onInputChange, 
   onApply, 
-  onReset 
+  onReset,
+  deviceCodes = [],
+  deviceTypes = DEVICE_OPTIONS,
+  staffOptions = STAFF_OPTIONS
 }) {
-  const deviceCodesList = ['TB-9981', 'PG-001', 'TB-002', 'TB-003'];
-
   return (
     <div className="filter-bar-container">
       {/* 1. Loại thiết bị */}
@@ -20,7 +21,7 @@ export default function FilterBar({
           className="filter-control"
           value={filterForm.deviceType}
           onChange={(val) => onInputChange('deviceType', val)}
-          options={DEVICE_OPTIONS}
+          options={deviceTypes}
           placeholder="Nhập loại thiết bị..."
         />
       </div>
@@ -32,7 +33,7 @@ export default function FilterBar({
           className="filter-control"
           value={filterForm.deviceCode}
           onChange={(val) => onInputChange('deviceCode', val)}
-          options={deviceCodesList}
+          options={deviceCodes}
           placeholder="Nhập mã thiết bị..."
         />
       </div>
@@ -72,7 +73,7 @@ export default function FilterBar({
           className="filter-control"
           value={filterForm.staff}
           onChange={(val) => onInputChange('staff', val)}
-          options={STAFF_OPTIONS}
+          options={staffOptions}
           placeholder="Nhập tên nhân viên..."
         />
       </div>

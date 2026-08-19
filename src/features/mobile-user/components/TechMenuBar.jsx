@@ -5,6 +5,7 @@ import './TechMenuBar.css';
 export default function TechMenuBar({
   activeNavMenu,
   setActiveNavMenu,
+  goToHome,
   goToSchedule,
   goToUnassignedTasks,
   goToAssignedTasks,
@@ -22,6 +23,19 @@ export default function TechMenuBar({
     <div className="tech-menu-container">
       {/* THANH MENU CHÍNH */}
       <div className="tech-menu-bar">
+        {/* Nút Home */}
+        <button
+          type="button"
+          className={`tech-menu-item ${activeNavMenu === 'home' ? 'active' : ''}`}
+          onClick={() => {
+            if (setActiveNavMenu) setActiveNavMenu('home');
+            setShowTaskSubmenu(false);
+            if (goToHome) goToHome();
+          }}
+        >
+          TRANG CHỦ
+        </button>
+
         {/* Nút 1: Xem lịch làm việc */}
         <button
           type="button"

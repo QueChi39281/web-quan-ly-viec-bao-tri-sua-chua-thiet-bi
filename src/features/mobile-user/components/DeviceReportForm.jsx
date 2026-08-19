@@ -16,9 +16,10 @@ export default function DeviceReportForm({
           <label className="form-label">Mã thiết bị:</label>
           <input
             type="text"
-            placeholder="Nhập mã thiết bị (Ví dụ: LP_03)"
+            placeholder="Nhập mã thiết bị (tối đa 20 ký tự)"
+            maxLength={20}
             value={formData.deviceId}
-            onChange={(e) => setFormData({ ...formData, deviceId: e.target.value })}
+            onChange={(e) => setFormData({ ...formData, deviceId: e.target.value.slice(0, 20) })}
             className="input-field"
             required
           />

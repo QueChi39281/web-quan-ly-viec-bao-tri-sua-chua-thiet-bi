@@ -8,63 +8,18 @@ import ManagerSidebar from '../../components/ManagerSidebar';
 import { maintenanceApi, reportApi } from '../../services/api';
 import './DashboardPage.css';
 
-const mockSparePartsCostData = [
-  { region: 'RAM & SSD', Q1: 45, Q2: 32, Q3: 28, Q4: 55 },
-  { region: 'Màn hình', Q1: 60, Q2: 48, Q3: 52, Q4: 70 },
-  { region: 'Pin Laptop', Q1: 30, Q2: 22, Q3: 25, Q4: 35 },
-  { region: 'Mực in & Main', Q1: 25, Q2: 18, Q3: 22, Q4: 30 },
-  { region: 'Phụ kiện', Q1: 15, Q2: 12, Q3: 10, Q4: 18 },
-];
-
-const mockFixTimeData = [
-  { region: 'N.V. An', Q1: 2.5, Q2: 2.0, Q3: 1.8, Q4: 2.2 },
-  { region: 'T.T. Bích', Q1: 3.8, Q2: 3.1, Q3: 2.8, Q4: 3.2 },
-  { region: 'L.H. Cường', Q1: 1.5, Q2: 1.2, Q3: 1.1, Q4: 1.4 },
-  { region: 'P.M. Đức', Q1: 4.2, Q2: 3.5, Q3: 3.0, Q4: 3.8 },
-  { region: 'V.Q. Huy', Q1: 2.8, Q2: 2.2, Q3: 2.0, Q4: 2.5 },
-];
-
-const mockFailureFrequencyData = [
-  { region: 'Laptop', Q1: 35, Q2: 28, Q3: 22, Q4: 40 },
-  { region: 'PC Bàn', Q1: 25, Q2: 18, Q3: 15, Q4: 28 },
-  { region: 'Máy in', Q1: 45, Q2: 32, Q3: 38, Q4: 50 },
-  { region: 'Màn hình', Q1: 18, Q2: 12, Q3: 10, Q4: 20 },
-  { region: 'Mạng', Q1: 12, Q2: 8, Q3: 6, Q4: 15 },
-];
-
-const mockVendorFailureData = [
-  { region: 'Dell', Q1: 12, Q2: 8, Q3: 6, Q4: 10 },
-  { region: 'HP', Q1: 18, Q2: 14, Q3: 10, Q4: 15 },
-  { region: 'Lenovo', Q1: 10, Q2: 6, Q3: 5, Q4: 8 },
-  { region: 'Asus', Q1: 15, Q2: 11, Q3: 9, Q4: 12 },
-  { region: 'Apple', Q1: 4, Q2: 2, Q3: 3, Q4: 5 },
-];
-
-const mockMaintenanceTasks = [
-  { id: 1, name: 'Máy in Laser HP (TB-9981)', deadline: 'Hôm nay - 15:00', isUrgent: true, tagText: 'Gấp' },
-  { id: 2, name: 'Laptop Dell Inspiron 15', deadline: 'Ngày mai - 09:00', isUrgent: false, tagText: 'Định kỳ' },
-  { id: 3, name: 'Máy tính để bàn HP Pavilion', deadline: '15/08/2026', isUrgent: false, tagText: 'Định kỳ' },
-  { id: 4, name: 'Server lưu trữ NAS Synology', deadline: '16/08/2026', isUrgent: true, tagText: 'Gấp' },
-  { id: 5, name: 'Switch mạng Cisco Core 48P', deadline: '18/08/2026', isUrgent: false, tagText: 'Định kỳ' },
-  { id: 6, name: 'Máy chiếu phòng họp A1', deadline: '20/08/2026', isUrgent: false, tagText: 'Định kỳ' },
-  { id: 7, name: 'Bảo trì hệ thống mạng tầng 3', deadline: '22/08/2026', isUrgent: true, tagText: 'Gấp' },
-  { id: 8, name: 'Dàn Desktop Đồ họa VIP 02', deadline: '25/08/2026', isUrgent: false, tagText: 'Nâng cấp' },
-  { id: 9, name: 'UPS Bộ lưu điện Server 02', deadline: '28/08/2026', isUrgent: false, tagText: 'Thay Pin' },
-  { id: 10, name: 'Camera an ninh Cổng chính', deadline: '30/08/2026', isUrgent: false, tagText: 'Định kỳ' },
-];
-
 const defaultDashboard = {
-  totalDevices: 124,
-  pendingMaintenance: 12,
-  completed: 85,
-  issues: 3,
+  totalDevices: 0,
+  pendingMaintenance: 0,
+  completed: 0,
+  issues: 0,
   charts: {
-    sparePartsCostData: mockSparePartsCostData,
-    fixTimeData: mockFixTimeData,
-    failureFrequencyData: mockFailureFrequencyData,
-    vendorFailureData: mockVendorFailureData,
+    sparePartsCostData: [],
+    fixTimeData: [],
+    failureFrequencyData: [],
+    vendorFailureData: [],
   },
-  tasks: mockMaintenanceTasks,
+  tasks: [],
 };
 
 export default function DashboardPage() {
@@ -75,22 +30,22 @@ export default function DashboardPage() {
       try {
         const [summaryRes, requestsRes] = await Promise.all([
           reportApi.getDashboardSummary(),
-          maintenanceApi.getRequests({ status: 'PLANNING' }),
+          maintenanceApi.getPlans({ limit: 100 }),
         ]);
 
         const summary = summaryRes?.data || summaryRes || {};
         const requests = Array.isArray(requestsRes?.data) ? requestsRes.data : (Array.isArray(requestsRes) ? requestsRes : []);
 
         setDashboard({
-          totalDevices: Number(summary.totalDevices ?? summary.total_devices ?? defaultDashboard.totalDevices),
-          pendingMaintenance: Number(summary.pendingMaintenance ?? summary.pending_maintenance ?? defaultDashboard.pendingMaintenance),
-          completed: Number(summary.completed ?? defaultDashboard.completed),
-          issues: Number(summary.issues ?? defaultDashboard.issues),
+          totalDevices: Number(summary.totalDevices ?? summary.total_devices ?? 0),
+          pendingMaintenance: Number(summary.pendingMaintenance ?? summary.pending_maintenance ?? 0),
+          completed: Number(summary.completed ?? 0),
+          issues: Number(summary.issues ?? 0),
           charts: {
-            sparePartsCostData: summary.sparePartsCostData || defaultDashboard.charts.sparePartsCostData,
-            fixTimeData: summary.fixTimeData || defaultDashboard.charts.fixTimeData,
-            failureFrequencyData: summary.failureFrequencyData || defaultDashboard.charts.failureFrequencyData,
-            vendorFailureData: summary.vendorFailureData || defaultDashboard.charts.vendorFailureData,
+            sparePartsCostData: summary.sparePartsCostData || [],
+            fixTimeData: summary.fixTimeData || [],
+            failureFrequencyData: summary.failureFrequencyData || [],
+            vendorFailureData: summary.vendorFailureData || [],
           },
           tasks: requests.length ? requests.map((item, idx) => ({
             id: item.id ?? idx + 1,

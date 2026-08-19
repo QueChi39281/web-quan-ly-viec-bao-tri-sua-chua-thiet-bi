@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { deviceApi } from '../../../services/api.js';
+import { deviceApi, maintenanceApi } from '../../../services/api.js';
 
 export default function ManagementRequestForm({
   formData,
@@ -10,6 +10,7 @@ export default function ManagementRequestForm({
   const [devicesList, setDevicesList] = useState([]);
   const [loadingDevices, setLoadingDevices] = useState(false);
   const [typedDeviceName, setTypedDeviceName] = useState('');
+  const [plans, setPlans] = useState([]);
 
   // Lấy danh sách thiết bị khi chọn loại "YEU_CAU_THIET_BI"
   useEffect(() => {
@@ -32,6 +33,19 @@ export default function ManagementRequestForm({
       fetchDevices();
     }
   }, [formData.requestCategory]);
+
+  useEffect(() => {
+    const fetchPlans = async () => {
+      try {
+        const response = await maintenanceApi.getPlans({ limit: 100 });
+        setPlans(Array.isArray(response) ? response : response?.data || []);
+      } catch (error) {
+        console.error('Lỗi khi lấy danh sách kế hoạch:', error);
+        setPlans([]);
+      }
+    };
+    fetchPlans();
+  }, []);
 
   // Kiểm tra điều kiện ẩn trường "Độ khẩn cấp"
   const hidePriority =
@@ -113,6 +127,22 @@ export default function ManagementRequestForm({
       </div>
 
       <form onSubmit={onSubmit}>
+        <div className="form-group">
+          <label className="form-label">Kế hoạch liên quan:</label>
+          <select
+            className="select-field"
+            value={formData.planId || ''}
+            onChange={(e) => setFormData({ ...formData, planId: e.target.value })}
+            required
+          >
+            <option value="">-- Chọn kế hoạch --</option>
+            {plans.map((plan) => (
+              <option key={plan.id} value={plan.id}>
+                #{plan.id} - Thiết bị #{plan.device_id} - {plan.plan_type === 'repair' ? 'Sửa chữa' : 'Bảo trì'}
+              </option>
+            ))}
+          </select>
+        </div>
         {/* Mã thiết bị / Select tên thiết bị */}
         <div className="form-group">
           <label className="form-label">

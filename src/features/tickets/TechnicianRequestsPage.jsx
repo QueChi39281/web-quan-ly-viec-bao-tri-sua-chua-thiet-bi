@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import HeaderInfo from '../../components/HeaderInfo';
 import ManagerSidebar from '../../components/ManagerSidebar';
@@ -6,7 +6,7 @@ import RejectModal from './components/RejectModal';
 import TechnicianRequestsTable from './components/TechnicianRequestsTable';
 import Pagination from './components/Pagination';
 import ExportExcelButton from '../../components/ExportExcelButton';
-import { maintenanceApi } from '../../services/api';
+import { getCurrentEmployeeId, maintenanceApi } from '../../services/api';
 import { REQUEST_TYPES } from '../../constants/technicianRequests';
 import './TechnicianRequestsPage.css';
 
@@ -14,6 +14,8 @@ const PAGE_SIZE = 30;
 
 export default function TechnicianRequestsPage() {
   const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [expandedId, setExpandedId] = useState(null);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [isRejectOpen, setIsRejectOpen] = useState(false);
@@ -24,18 +26,50 @@ export default function TechnicianRequestsPage() {
 
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const fetchRequests = async () => {
-      try {
-        const response = await maintenanceApi.getRequests({ requestType: 'TECHNICIAN' });
-        setRequests(Array.isArray(response) ? response : response?.data || []);
-      } catch (error) {
-        console.error('Failed to fetch technician requests:', error);
-        setRequests([]);
-      }
-    };
-    fetchRequests();
+  // Hàm gọi API thực tế để lấy danh sách yêu cầu
+  const fetchRequests = useCallback(async () => {
+    try {
+      setLoading(true);
+      setLoadError('');
+      
+      // Gọi API thực tế thông qua maintenanceApi
+      const response = await maintenanceApi.getMaintenanceRequests({ limit: 100 });
+      
+      const rawData = Array.isArray(response)
+        ? response
+        : Array.isArray(response?.data)
+          ? response.data
+          : Array.isArray(response?.data?.data)
+            ? response.data.data
+            : [];
+
+      // Mapped dữ liệu chuẩn hóa cho UI
+      const mappedRequests = rawData.map((request) => ({
+        id: request.id || request._id || request.request_id,
+        type: request.request_type || request.type || 'MAINTENANCE_REQUEST',
+        employeeName: request.employee_name || request.created_by_employee_name || request.created_by_employee_id || 'N/A',
+        deviceCode: request.device_code || request.device_id || (request.plan_id ? `PLAN-${request.plan_id}` : 'N/A'),
+        content: request.reason || request.content || request.description || '',
+        estimatedCost: Number(request.estimated_cost || request.cost || 0),
+        createdAt: request.created_at || request.createdAt || '',
+        status: request.status || 'pending',
+        planId: request.plan_id || request.planId,
+        rejectReason: request.reject_reason || request.rejectReason || ''
+      }));
+
+      setRequests(mappedRequests);
+    } catch (error) {
+      console.error('Lỗi khi tải danh sách yêu cầu bảo trì:', error);
+      setRequests([]);
+      setLoadError(error?.message || error?.error || 'Không thể tải danh sách yêu cầu từ máy chủ.');
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchRequests();
+  }, [fetchRequests]);
 
   // Cấu hình các cột cho file Excel xuất ra
   const excelColumns = useMemo(() => [
@@ -74,8 +108,8 @@ export default function TechnicianRequestsPage() {
       key: 'status', 
       align: 'center',
       formatter: (val) => {
-        if (val === 'ACCEPTED') return 'Đã chấp nhận';
-        if (val === 'REJECTED') return 'Từ chối';
+        if (['ACCEPTED', 'success', 'approved'].includes(val)) return 'Đã chấp nhận';
+        if (['REJECTED', 'fail', 'rejected'].includes(val)) return 'Từ chối';
         return 'Chờ duyệt';
       }
     }
@@ -127,37 +161,50 @@ export default function TechnicianRequestsPage() {
 
   const toggleExpand = (id) => setExpandedId(expandedId === id ? null : id);
 
-  const handleAccept = (ticket) => {
+  // Xử lý Chấp nhận (Approve) Yêu cầu qua API
+  const handleAccept = async (ticket) => {
     if (window.confirm(`Xác nhận CHẤP NHẬN yêu cầu từ ${ticket.employeeName}?`)) {
-      setRequests(prev => prev.map(item => item.id === ticket.id ? { ...item, status: 'ACCEPTED' } : item));
-      
-      const formattedDeviceCode = Array.isArray(ticket.deviceCodes) 
-        ? ticket.deviceCodes[0] || ''
-        : (ticket.deviceCode || ticket.deviceCodes || '');
+      try {
+        const currentEmpId = getCurrentEmployeeId();
+        await maintenanceApi.approveMaintenanceRequest(ticket.id, {
+          approved_by: Number(currentEmpId) || currentEmpId || 1,
+          status: 'success'
+        });
 
-      const isScrap = ticket.content?.toLowerCase().includes('thanh lý');
+        // Cập nhật state local
+        setRequests(prev => prev.map(item => item.id === ticket.id ? { ...item, status: 'success' } : item));
 
-      // 1. Trường hợp báo hỏng thanh lý -> Đổi trạng thái thiết bị trực tiếp
-      if (ticket.type === 'REPORT_REPAIR' && isScrap) {
-        alert(`Đã duyệt yêu cầu thanh lý cho thiết bị ${formattedDeviceCode}`);
-        return;
-      }
+        const formattedDeviceCode = Array.isArray(ticket.deviceCodes) 
+          ? ticket.deviceCodes[0] || ''
+          : (ticket.deviceCode || ticket.deviceCodes || '');
 
-      // 2. Điều hướng sang Trang Lập kế hoạch bảo trì/sửa chữa
-      navigate('/maintenance-plan', {
-        state: {
-          fromApproval: true,
-          requestData: {
-            deviceCode: formattedDeviceCode,
-            deviceStatus: ticket.deviceStatus || 'Đang sử dụng',
-            type: ticket.type,
-            content: ticket.content || null,
-            estimatedCost: ticket.estimatedCost || 0,
-            employeeName: ticket.employeeName || null,
-            requestId: ticket.id || null
-          }
+        const isScrap = ticket.content?.toLowerCase().includes('thanh lý');
+
+        // 1. Trường hợp báo hỏng thanh lý -> Đổi trạng thái thiết bị trực tiếp
+        if (ticket.type === 'REPORT_REPAIR' && isScrap) {
+          alert(`Đã duyệt thành công yêu cầu thanh lý cho thiết bị ${formattedDeviceCode}`);
+          return;
         }
-      });
+
+        // 2. Điều hướng sang Trang Lập kế hoạch bảo trì/sửa chữa
+        navigate('/maintenance-plan', {
+          state: {
+            fromApproval: true,
+            requestData: {
+              deviceCode: formattedDeviceCode,
+              deviceStatus: ticket.deviceStatus || 'Đang sử dụng',
+              type: ticket.type,
+              content: ticket.content || null,
+              estimatedCost: ticket.estimatedCost || 0,
+              employeeName: ticket.employeeName || null,
+              requestId: ticket.id || null
+            }
+          }
+        });
+      } catch (error) {
+        console.error('Lỗi khi duyệt yêu cầu bảo trì:', error);
+        alert(error?.message || error?.error || 'Không thể duyệt yêu cầu bảo trì trên hệ thống.');
+      }
     }
   };
 
@@ -166,10 +213,24 @@ export default function TechnicianRequestsPage() {
     setIsRejectOpen(true);
   };
 
-  const handleConfirmReject = (ticket, reason) => {
-    setRequests(prev => prev.map(item => item.id === ticket.id ? { ...item, status: 'REJECTED', rejectReason: reason } : item));
-    setIsRejectOpen(false);
-    setSelectedTicket(null);
+  // Xử lý Từ chối (Reject) Yêu cầu qua API
+  const handleConfirmReject = async (ticket, reason) => {
+    try {
+      const currentEmpId = getCurrentEmployeeId();
+      await maintenanceApi.approveMaintenanceRequest(ticket.id, {
+        approved_by: Number(currentEmpId) || currentEmpId || 1,
+        status: 'fail',
+        reason: reason || 'Từ chối bởi quản lý'
+      });
+
+      // Cập nhật state local
+      setRequests(prev => prev.map(item => item.id === ticket.id ? { ...item, status: 'fail', rejectReason: reason } : item));
+      setIsRejectOpen(false);
+      setSelectedTicket(null);
+    } catch (error) {
+      console.error('Lỗi khi từ chối yêu cầu bảo trì:', error);
+      alert(error?.message || error?.error || 'Không thể từ chối yêu cầu bảo trì trên hệ thống.');
+    }
   };
 
   const safeTypes = REQUEST_TYPES ? Object.entries(REQUEST_TYPES) : [];
@@ -186,9 +247,19 @@ export default function TechnicianRequestsPage() {
         </aside>
 
         <main className="main-content-container">
-          <h2 className="plan-page-title">
-            Danh sách yêu cầu từ nhân viên sửa chữa
-          </h2>
+          <div className="page-title-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h2 className="plan-page-title">
+              Danh sách yêu cầu từ nhân viên sửa chữa
+            </h2>
+            <button 
+              className="btn-refresh" 
+              onClick={fetchRequests} 
+              disabled={loading}
+              style={{ padding: '6px 12px', cursor: 'pointer' }}
+            >
+              {loading ? 'Đang làm mới...' : '🔄 Làm mới'}
+            </button>
+          </div>
 
           <div className="filter-bar-container">
             <div className="filter-group">
@@ -214,16 +285,26 @@ export default function TechnicianRequestsPage() {
           </div>
 
           <div className="frame-33-table-wrapper">
-            <TechnicianRequestsTable 
-              requests={paginatedRequests}
-              expandedId={expandedId}
-              toggleExpand={toggleExpand}
-              handleAccept={handleAccept}
-              handleOpenReject={handleOpenReject}
-              sortConfig={sortConfig}
-              onSort={handleSort}
-              startIndex={(currentPage - 1) * PAGE_SIZE}
-            />
+            {loading ? (
+              <div className="empty-table-msg">Đang tải yêu cầu từ máy chủ...</div>
+            ) : loadError ? (
+              <div className="empty-table-msg text-danger" style={{ color: 'red' }}>
+                {loadError}
+                <br />
+                <button onClick={fetchRequests} style={{ marginTop: '8px', cursor: 'pointer' }}>Thử lại</button>
+              </div>
+            ) : (
+              <TechnicianRequestsTable
+                requests={paginatedRequests}
+                expandedId={expandedId}
+                toggleExpand={toggleExpand}
+                handleAccept={handleAccept}
+                handleOpenReject={handleOpenReject}
+                sortConfig={sortConfig}
+                onSort={handleSort}
+                startIndex={(currentPage - 1) * PAGE_SIZE}
+              />
+            )}
           </div>
 
           <Pagination 
