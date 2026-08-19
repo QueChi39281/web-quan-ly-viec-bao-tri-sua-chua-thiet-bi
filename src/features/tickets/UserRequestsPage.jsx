@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import HeaderInfo from '../../components/HeaderInfo';
 import ManagerSidebar from '../../components/ManagerSidebar';
@@ -22,6 +22,8 @@ const ALLOWED_URGENT_TYPES = ['REPORT_BROKEN', 'REQUEST_EQUIPMENT'];
 
 export default function UserRequestsPage() {
   const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [expandedId, setExpandedId] = useState(null);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [isRejectOpen, setIsRejectOpen] = useState(false);
@@ -33,31 +35,45 @@ export default function UserRequestsPage() {
   const navigate = useNavigate();
 
   // Load dữ liệu từ API
-  useEffect(() => {
-    const fetchRequests = async () => {
-      try {
-        const response = await maintenanceApi.getRepairs({ status: 'pending', limit: 100 });
-        const repairs = Array.isArray(response) ? response : response?.data || [];
-        setRequests(repairs.map((repair) => ({
-          id: repair.id || repair._id,
-          type: 'REPORT_BROKEN',
-          priority: String(repair.priority || 'normal').toUpperCase(),
-          deviceCode: repair.device_code || repair.deviceCode || `DEV-${repair.device_id || ''}`,
-          employeeName: repair.employee_name || repair.created_by_employee_id || 'N/A',
-          content: repair.description || '',
-          createdAt: repair.created_at || repair.createdAt || '',
-          estimatedCost: Number(repair.estimated_cost || 0),
-          managerName: repair.approved_by_employee_id || 'Chưa duyệt',
-          status: repair.status || 'pending',
-          deviceId: repair.device_id
-        })));
-      } catch (error) {
-        console.error('Failed to fetch user requests:', error);
-        setRequests([]);
-      }
-    };
-    fetchRequests();
+  const fetchRequests = useCallback(async () => {
+    try {
+      setLoading(true);
+      setLoadError('');
+      const response = await maintenanceApi.getRepairs({ status: 'pending', limit: 100 });
+      const repairs = Array.isArray(response)
+        ? response
+        : Array.isArray(response?.data)
+          ? response.data
+          : Array.isArray(response?.data?.data)
+            ? response.data.data
+            : [];
+            
+      setRequests(repairs.map((repair) => ({
+        id: repair.id || repair._id,
+        type: 'REPORT_BROKEN',
+        priority: String(repair.priority || 'normal').toUpperCase(),
+        deviceCode: repair.device_code || repair.deviceCode || (repair.device_id ? `DEV-${repair.device_id}` : 'N/A'),
+        employeeName: repair.employee_name || repair.created_by_employee_name || repair.created_by_employee_id || 'N/A',
+        content: repair.description || repair.content || '',
+        createdAt: repair.created_at || repair.createdAt || '',
+        estimatedCost: Number(repair.estimated_cost || repair.cost || 0),
+        managerName: repair.approved_by_employee_name || repair.approved_by_employee_id || 'Chưa duyệt',
+        status: repair.status || 'pending',
+        deviceId: repair.device_id,
+        rejectReason: repair.reject_reason || repair.rejectReason || ''
+      })));
+    } catch (error) {
+      console.error('Failed to fetch user requests:', error);
+      setRequests([]);
+      setLoadError(error?.message || error?.error || 'Không thể tải yêu cầu báo hỏng từ máy chủ.');
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchRequests();
+  }, [fetchRequests]);
 
   // Format hiển thị ngày giờ chuẩn Việt Nam (HH:mm DD/MM/YYYY)
   const formatDateDisplay = (isoString) => {
@@ -117,8 +133,8 @@ export default function UserRequestsPage() {
       key: 'status', 
       align: 'center',
       formatter: (val) => {
-        if (['ACCEPTED', 'success'].includes(val)) return 'Đã chấp nhận';
-        if (['REJECTED', 'fail'].includes(val)) return 'Đã từ chối';
+        if (['ACCEPTED', 'success', 'approved'].includes(val)) return 'Đã chấp nhận';
+        if (['REJECTED', 'fail', 'rejected'].includes(val)) return 'Đã từ chối';
         return 'Chờ duyệt';
       }
     }
@@ -187,44 +203,46 @@ export default function UserRequestsPage() {
   const handleAccept = async (ticket) => {
     if (window.confirm(`Xác nhận CHẤP NHẬN yêu cầu từ ${ticket.employeeName}?`)) {
       try {
+        const currentEmpId = getCurrentEmployeeId();
         await maintenanceApi.approveRepair(ticket.id, {
-          approved_by: Number(getCurrentEmployeeId()) || 1,
+          approved_by: Number(currentEmpId) || currentEmpId || 1,
           status: 'success'
         });
+
+        // Cập nhật lại state local
         setRequests(prev => prev.map(item => item.id === ticket.id ? { ...item, status: 'success' } : item));
+
+        const formattedDeviceCode = Array.isArray(ticket.deviceCodes) 
+          ? ticket.deviceCodes[0] || ''
+          : (ticket.deviceCode || ticket.deviceCodes || '');
+
+        const isScrap = ticket.content?.toLowerCase().includes('thanh lý');
+
+        // 1. Trường hợp báo hỏng thanh lý -> Thông báo trực tiếp
+        if (ticket.type === 'REPORT_BROKEN' && isScrap) {
+          alert(`Đã duyệt yêu cầu thanh lý cho thiết bị ${formattedDeviceCode}`);
+          return;
+        }
+
+        // 2. Điều hướng sang Trang Lập kế hoạch bảo trì/sửa chữa
+        navigate('/maintenance-plan', {
+          state: {
+            fromApproval: true,
+            requestData: {
+              deviceCode: formattedDeviceCode,
+              deviceStatus: ticket.deviceStatus || 'Đang sử dụng',
+              type: ticket.type,
+              content: ticket.content || null,
+              estimatedCost: ticket.estimatedCost || 0,
+              employeeName: ticket.employeeName || null,
+              requestId: ticket.id || null
+            }
+          }
+        });
       } catch (error) {
         console.error('Không thể duyệt yêu cầu sửa chữa:', error);
-        alert(error?.message || 'Không thể duyệt yêu cầu sửa chữa.');
-        return;
+        alert(error?.message || error?.error || 'Không thể duyệt yêu cầu sửa chữa trên hệ thống.');
       }
-
-      const formattedDeviceCode = Array.isArray(ticket.deviceCodes) 
-        ? ticket.deviceCodes[0] || ''
-        : (ticket.deviceCode || ticket.deviceCodes || '');
-
-      const isScrap = ticket.content?.toLowerCase().includes('thanh lý');
-
-      // 1. Trường hợp báo hỏng thanh lý -> Thông báo trực tiếp
-      if (ticket.type === 'REPORT_BROKEN' && isScrap) {
-        alert(`Đã duyệt yêu cầu thanh lý cho thiết bị ${formattedDeviceCode}`);
-        return;
-      }
-
-      // 2. Điều hướng sang Trang Lập kế hoạch bảo trì/sửa chữa
-      navigate('/maintenance-plan', {
-        state: {
-          fromApproval: true,
-          requestData: {
-            deviceCode: formattedDeviceCode,
-            deviceStatus: ticket.deviceStatus || 'Đang sử dụng',
-            type: ticket.type,
-            content: ticket.content || null,
-            estimatedCost: ticket.estimatedCost || 0,
-            employeeName: ticket.employeeName || null,
-            requestId: ticket.id || null
-          }
-        }
-      });
     }
   };
 
@@ -235,24 +253,28 @@ export default function UserRequestsPage() {
 
   const handleConfirmReject = async (ticket, reason) => {
     try {
+      const currentEmpId = getCurrentEmployeeId();
       await maintenanceApi.approveRepair(ticket.id, {
-        approved_by: Number(getCurrentEmployeeId()) || 1,
-        status: 'fail'
+        approved_by: Number(currentEmpId) || currentEmpId || 1,
+        status: 'fail',
+        reason: reason || 'Từ chối bởi quản lý'
       });
+
       setRequests(prev => prev.map(item => item.id === ticket.id ? { ...item, status: 'fail', rejectReason: reason } : item));
+      setIsRejectOpen(false);
+      setSelectedTicket(null);
     } catch (error) {
       console.error('Không thể từ chối yêu cầu sửa chữa:', error);
-      alert(error?.message || 'Không thể từ chối yêu cầu sửa chữa.');
-      return;
+      alert(error?.message || error?.error || 'Không thể từ chối yêu cầu sửa chữa trên hệ thống.');
     }
-    setIsRejectOpen(false);
-    setSelectedTicket(null);
   };
 
   const renderSortArrow = (key) => {
     if (sortConfig.key !== key) return <span className="sort-arrow inactive">▲▼</span>;
     return <span className="sort-arrow">{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>;
   };
+
+  const safeTypes = USER_REQUEST_TYPES ? Object.entries(USER_REQUEST_TYPES) : [];
 
   return (
     <div className="page-root-layout">
@@ -266,9 +288,19 @@ export default function UserRequestsPage() {
         </aside>
 
         <main className="main-content-container">
-          <h2 className="plan-page-title">
-            Danh sách yêu cầu từ người dùng thiết bị
-          </h2>
+          <div className="page-title-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h2 className="plan-page-title">
+              Danh sách yêu cầu từ người dùng thiết bị
+            </h2>
+            <button 
+              className="btn-refresh" 
+              onClick={fetchRequests} 
+              disabled={loading}
+              style={{ padding: '6px 12px', cursor: 'pointer' }}
+            >
+              {loading ? 'Đang làm mới...' : '🔄 Làm mới'}
+            </button>
+          </div>
 
           <div className="filter-bar-container">
             <div className="filter-group">
@@ -279,8 +311,8 @@ export default function UserRequestsPage() {
                 onChange={(e) => { setSelectedTypeFilter(e.target.value); setCurrentPage(1); }}
               >
                 <option value="ALL">-- Tất cả loại yêu cầu --</option>
-                {Object.entries(USER_REQUEST_TYPES).map(([key, item]) => (
-                  <option key={key} value={key}>{item.label}</option>
+                {safeTypes.map(([key, item]) => (
+                  <option key={key} value={key}>{item?.label || key}</option>
                 ))}
               </select>
             </div>
@@ -323,7 +355,17 @@ export default function UserRequestsPage() {
                 </tr>
               </thead>
               <tbody>
-                {paginatedRequests.length === 0 ? (
+                {loading ? (
+                  <tr><td colSpan="11" className="empty-table-msg">Đang tải yêu cầu từ máy chủ...</td></tr>
+                ) : loadError ? (
+                  <tr>
+                    <td colSpan="11" className="empty-table-msg text-danger" style={{ color: 'red' }}>
+                      {loadError}
+                      <br />
+                      <button onClick={fetchRequests} style={{ marginTop: '8px', cursor: 'pointer' }}>Thử lại</button>
+                    </td>
+                  </tr>
+                ) : paginatedRequests.length === 0 ? (
                   <tr>
                     <td colSpan="11" className="empty-table-msg">Không có dữ liệu yêu cầu</td>
                   </tr>
@@ -333,14 +375,17 @@ export default function UserRequestsPage() {
                     const typeInfo = USER_REQUEST_TYPES[item.type] || { label: item.type, badgeClass: '' };
                     
                     const priorityKey = getEffectivePriority(item);
-                    const priorityInfo = PRIORITY_MAP[priorityKey];
+                    const priorityInfo = PRIORITY_MAP[priorityKey] || PRIORITY_MAP.NORMAL;
                     const isUrgent = priorityKey === 'URGENT';
+
+                    const isApproved = ['ACCEPTED', 'success', 'approved'].includes(item.status);
+                    const isRejected = ['REJECTED', 'fail', 'rejected'].includes(item.status);
 
                     return (
                       <tr key={item.id || index} className={isUrgent ? 'row-urgent-highlight' : ''}>
                         <td className="text-center">{(currentPage - 1) * PAGE_SIZE + index + 1}</td>
                         <td>
-                          <span className={`request-type-badge ${typeInfo.badgeClass}`}>
+                          <span className={`request-type-badge ${typeInfo.badgeClass || ''}`}>
                             {typeInfo.label}
                           </span>
                         </td>
@@ -376,15 +421,15 @@ export default function UserRequestsPage() {
                         <td>{item.managerName || '-'}</td>
                         <td className="reject-reason-cell">
                           {item.rejectReason ? (
-                            <span className="text-danger">{item.rejectReason}</span>
+                            <span className="text-danger" style={{ color: 'red' }}>{item.rejectReason}</span>
                           ) : (
                             <span className="text-muted">-</span>
                           )}
                         </td>
                         <td className="text-center action-cell">
-                          {item.status === 'ACCEPTED' ? (
+                          {isApproved ? (
                             <span className="badge-accepted">Đã chấp nhận</span>
-                          ) : item.status === 'REJECTED' ? (
+                          ) : isRejected ? (
                             <span className="badge-rejected">Đã từ chối</span>
                           ) : (
                             <div className="action-btn-group">

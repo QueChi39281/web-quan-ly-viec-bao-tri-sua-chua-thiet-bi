@@ -21,7 +21,6 @@ export default function PartReturnModal({ isOpen, onClose, onSubmit, availablePa
   const handleSubmit = (e) => {
     e.preventDefault();
     onSubmit(items);
-    alert("Yêu cầu trả linh kiện đã được gửi tới quản lý!");
     onClose();
   };
 

@@ -64,8 +64,8 @@ const mapPlanToRow = (item, devicesById, employeesById) => {
     content: item.description || '',
     supplies: [],
     cost: item.estimated_cost == null ? 0 : Number(item.estimated_cost),
-    assignedStaffs: Array.isArray(item.plan_assignments)
-      ? item.plan_assignments.map(assignment => {
+    assignedStaffs: Array.isArray(item.assignments || item.plan_assignments)
+      ? (item.assignments || item.plan_assignments).map(assignment => {
         const employee = employeesById.get(String(assignment.employee_id));
         return {
           id: assignment.employee_id,
@@ -110,7 +110,7 @@ export default function MaintenancePlanPage() {
 
       const plansWithAssignments = await Promise.all(
         plansData.map(async (plan) => {
-          if (Array.isArray(plan.plan_assignments) && plan.plan_assignments.length > 0) return plan;
+          if (Array.isArray(plan.assignments || plan.plan_assignments) && (plan.assignments || plan.plan_assignments).length > 0) return plan;
 
           try {
             const detail = await maintenanceApi.getPlanById(plan.id || plan._id);
@@ -688,9 +688,11 @@ export default function MaintenancePlanPage() {
           estimated_cost: editingRow.cost,
           planned_start_at: `${editingRow.startDate}T08:00:00Z`,
           planned_end_at: `${editingRow.endDate}T17:00:00Z`,
-          employee_ids: editingRow.assignedStaffs
-            .map(s => normalizeNumericId(normalizeEmployeeId(s.id || s.staffId), 0))
-            .filter(Boolean)
+          assignments: editingRow.assignedStaffs
+            .map(s => ({
+              employee_id: normalizeNumericId(normalizeEmployeeId(s.id || s.staffId), 0)
+            }))
+            .filter(assignment => assignment.employee_id > 0)
         };
 
         let result;
@@ -701,9 +703,8 @@ export default function MaintenancePlanPage() {
             estimated_cost: editingRow.cost,
             planned_start_at: `${editingRow.startDate}T08:00:00Z`,
             planned_end_at: `${editingRow.endDate}T17:00:00Z`,
-            employeesList: editingRow.assignedStaffs.map(s => ({
+            assignments: editingRow.assignedStaffs.map(s => ({
               employee_id: normalizeNumericId(normalizeEmployeeId(s.id || s.staffId), 0),
-              availability_status: 'available'
             })).filter(assignment => assignment.employee_id > 0)
           });
         } else {

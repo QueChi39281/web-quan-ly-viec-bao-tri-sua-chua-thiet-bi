@@ -100,7 +100,9 @@ export default function DeviceDetailPage() {
         const items = Array.isArray(response) ? response : response?.data || [];
         setAvailableParts(items.map((inventory) => {
           const item = inventory?.item || inventory;
-          return item?.name || item?.item_name || item?.supplyName || '';
+          const id = inventory?.id || item?.id || inventory?.inventory_id;
+          const name = item?.name || item?.item_name || item?.supplyName || '';
+          return id && name ? { id, name } : null;
         }).filter(Boolean));
       } catch (error) {
         console.error('Không thể tải danh sách linh kiện:', error);
@@ -142,6 +144,7 @@ export default function DeviceDetailPage() {
 
     try {
       await maintenanceApi.createDamageReport({
+        created_by: Number(getCurrentEmployeeId()) || getCurrentEmployeeId(),
         plan_id: Number(planId),
         device_id: Number(deviceId),
         description: formData.damageLevel,
@@ -179,6 +182,75 @@ export default function DeviceDetailPage() {
     } catch (error) {
       console.error('Không thể gửi yêu cầu nghiệm thu:', error);
       alert(error?.message || 'Không thể gửi yêu cầu nghiệm thu.');
+    }
+  };
+
+  const handleWarrantyRequest = async ({ reason }) => {
+    if (!planId) {
+      alert('Không xác định được kế hoạch bảo trì của thiết bị này.');
+      return;
+    }
+
+    try {
+      await maintenanceApi.createMaintenanceRequest({
+        created_by: Number(getCurrentEmployeeId()) || getCurrentEmployeeId(),
+        plan_id: Number(planId),
+        request_type: 'send_warranty',
+        reason,
+      });
+      alert('Đã gửi yêu cầu bảo hành tới quản lý thành công!');
+    } catch (error) {
+      console.error('Không thể gửi yêu cầu bảo hành:', error);
+      alert(error?.message || 'Không thể gửi yêu cầu bảo hành.');
+    }
+  };
+
+  const handleItemRequest = async (items, requestType) => {
+    if (!planId) {
+      alert('Không xác định được kế hoạch bảo trì của thiết bị này.');
+      return;
+    }
+
+    const details = items.map((item) => {
+      const match = availableParts.find((part) =>
+        String(part.inventoryId || part.id) === String(item.inventoryId || item.id || item.partName)
+        || part.name === item.partName
+      );
+      return {
+        inventory_id: Number(match?.inventoryId || match?.id || item.inventoryId || item.id),
+        quantity: Number(item.quantity) || 1,
+      };
+    }).filter((item) => Number.isInteger(item.inventory_id) && item.inventory_id > 0);
+
+    if (!details.length) {
+      alert('Không xác định được linh kiện trong kho.');
+      return;
+    }
+
+    try {
+      await inventoryApi.createItemRequest({
+        plan_id: Number(planId),
+        request_type: requestType,
+        reason: requestType === 'issue' ? 'Yêu cầu linh kiện thay thế' : 'Trả linh kiện sau sửa chữa',
+        details,
+      });
+
+      if (requestType === 'issue') {
+        setRequestedParts((previous) => [
+          ...previous,
+          ...items.map((item, index) => ({
+            id: Date.now() + index,
+            inventoryId: details[index].inventory_id,
+            name: item.partName,
+            quantity: item.quantity,
+          })),
+        ]);
+        setDeviceData((prev) => ({ ...prev, partStatus: 'Chờ xét duyệt' }));
+      }
+      alert(requestType === 'issue' ? 'Đã gửi yêu cầu linh kiện.' : 'Đã gửi yêu cầu trả linh kiện.');
+    } catch (error) {
+      console.error('Không thể gửi yêu cầu linh kiện:', error);
+      alert(error?.message || 'Không thể gửi yêu cầu linh kiện.');
     }
   };
 
@@ -362,25 +434,21 @@ export default function DeviceDetailPage() {
       <PartRequestModal
         isOpen={isPartModalOpen}
         onClose={() => setIsPartModalOpen(false)}
-        onSubmit={(newItems) => {
-          const formatted = newItems.map((p, idx) => ({ id: Date.now() + idx, name: p.partName, quantity: p.quantity }));
-          setRequestedParts([...requestedParts, ...formatted]);
-          setDeviceData(prev => ({ ...prev, partStatus: 'Chờ xét duyệt' }));
-        }}
+        onSubmit={(newItems) => handleItemRequest(newItems, 'issue')}
         availableParts={availableParts}
       />
 
       <PartReturnModal
         isOpen={isReturnModalOpen}
         onClose={() => setIsReturnModalOpen(false)}
-        onSubmit={(returnedItems) => console.log("Trả linh kiện:", returnedItems)}
+        onSubmit={(returnedItems) => handleItemRequest(returnedItems, 'return')}
         availableParts={requestedParts}
       />
 
       <WarrantyRequestModal
         isOpen={isWarrantyModalOpen}
         onClose={() => setIsWarrantyModalOpen(false)}
-        onSubmit={(data) => console.log("Yêu cầu bảo hành:", data)}
+        onSubmit={handleWarrantyRequest}
         deviceCode={deviceData.deviceCode}
       />
 

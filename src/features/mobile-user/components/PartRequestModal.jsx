@@ -25,7 +25,6 @@ export default function PartRequestModal({ isOpen, onClose, onSubmit, availableP
   const handleSubmit = (e) => {
     e.preventDefault();
     onSubmit(items);
-    alert("Yêu cầu linh kiện thành công đang chờ quản lý duyệt!");
     onClose();
   };
 

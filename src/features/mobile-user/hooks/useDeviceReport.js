@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getCurrentEmployeeId } from '../../../services/api.js';
 import { reportService } from '../services/reportService';
 
 export function useDeviceReport() {
@@ -11,7 +12,8 @@ export function useDeviceReport() {
     deviceId: '', 
     description: '', 
     priority: 'LOW',
-    requestCategory: 'YEU_CAU_THIET_BI' // Giá trị mặc định cho Đề xuất
+    requestCategory: 'YEU_CAU_THIET_BI',
+    planId: ''
   });
 
   useEffect(() => {
@@ -19,8 +21,6 @@ export function useDeviceReport() {
       const notifyRes = await reportService.getUnreadNotificationCount();
       if (notifyRes.success) setUnreadCount(notifyRes.data.unreadCount);
 
-      const listRes = await reportService.getMaintenanceRequests();
-      if (listRes.success) setRequestList(listRes.data.items);
     };
     loadInitData();
   }, []);
@@ -28,36 +28,68 @@ export function useDeviceReport() {
   const handleSubmitReport = async (e) => {
     e.preventDefault();
     
-    // Tự động tối ưu hóa tiêu đề dựa trên Tab người dùng đang đứng
-    const titlePayload = activeTab === 'bao-hong' 
-      // ? `Báo hỏng thiết bị ${formData.deviceId}`
-      ? `Báo hỏng thiết bị`
-      : `Đề xuất: ${
-          formData.requestCategory === 'YEU_CAU_THIET_BI' ? 'Yêu cầu thiết bị' :
-          formData.requestCategory === 'TRA_THIET_BI' ? 'Yêu cầu trả thiết bị' : 'Yêu cầu dời lịch bảo trì'
-        }`;
+    const employeeId = Number(getCurrentEmployeeId()) || getCurrentEmployeeId();
+    const deviceId = String(formData.deviceId || '').trim();
+    const planId = Number(formData.planId);
+    if (!employeeId || !deviceId || (activeTab !== 'bao-hong' && !planId)) {
+      alert(activeTab === 'bao-hong'
+        ? 'Vui lòng nhập mã thiết bị và nội dung báo hỏng.'
+        : 'Vui lòng chọn đầy đủ thiết bị và kế hoạch liên quan.');
+      return;
+    }
 
-    const payload = {
-      deviceId: formData.deviceId, 
-      title: titlePayload,
-      description: formData.description,
-      requestType: activeTab === 'bao-hong' ? "CORRECTIVE" : "PROPOSAL", // Phân loại theo spec API của bạn
-      priority: formData.priority,
-      reportedByUserId: "current-user-uuid" 
-    };
-
-    const response = await reportService.createMaintenanceRequest(payload);
-    if (response.success) {
+    try {
+      const repairDeviceId = activeTab === 'bao-hong'
+        ? await reportService.resolveDeviceId(deviceId)
+        : deviceId;
+      const payload = activeTab === 'bao-hong'
+        ? {
+            created_by: employeeId,
+            device_id: repairDeviceId,
+            priority: String(formData.priority || 'LOW').toLowerCase(),
+            description: formData.description,
+          }
+        : formData.requestCategory === 'DOI_LICH_BAO_TRI'
+        ? {
+            created_by: employeeId,
+            plan_id: planId,
+            reason: formData.description,
+            suggestion: formData.description,
+          }
+        : {
+            created_by: employeeId,
+            plan_id: planId,
+            request_type: formData.requestCategory === 'TRA_THIET_BI'
+              ? 'dispose'
+              : 'send_warranty',
+            reason: formData.description,
+          };
+      const response = activeTab === 'bao-hong'
+        ? await reportService.createRepair(payload)
+        : formData.requestCategory === 'DOI_LICH_BAO_TRI'
+        ? await reportService.createAdjustPlan(payload)
+        : await reportService.createMaintenanceRequest(payload);
+      if (response.success) {
       alert("Gửi yêu cầu thành công!");
-      setFormData({ deviceId: '', description: '', priority: 'LOW', requestCategory: 'YEU_CAU_THIET_BI' });
+      if (response.data) {
+        setRequestList((previous) => [response.data, ...previous.filter((item) => String(item.id) !== String(response.data.id))]);
+      }
+      setFormData({ deviceId: '', description: '', priority: 'LOW', requestCategory: 'YEU_CAU_THIET_BI', planId: '', solution: '', repairAction: 'normal_repair' });
       
-      const listRes = await reportService.getMaintenanceRequests();
-      if (listRes.success) setRequestList(listRes.data.items);
-    } else {
-      const detail = Array.isArray(response.errors) && response.errors.length > 0
-        ? response.errors.map(error => `${error.field || 'request'}: ${error.message}`).join('\n')
-        : response.message;
-      alert(detail || 'Không thể gửi yêu cầu.');
+      } else {
+        const detail = Array.isArray(response.errors) && response.errors.length > 0
+          ? response.errors.map(error => `${error.field || 'request'}: ${error.message}`).join('\n')
+          : response.message;
+        alert(detail || 'Không thể gửi yêu cầu.');
+      }
+    } catch (error) {
+      console.error('Lỗi khi gửi yêu cầu:', error);
+      alert(
+        error?.response?.data?.message
+        || error?.data?.message
+        || error?.message
+        || 'Không thể gửi yêu cầu.'
+      );
     }
   };
 

@@ -122,9 +122,9 @@ export default function TechnicianRequestsTable({
                     {item.status === 'REJECTED' ? (item.rejectReason || 'Không có lý do') : '-'}
                   </td>
                   <td className="text-center">
-                    {item.status === 'ACCEPTED' ? (
+                    {['ACCEPTED', 'success'].includes(item.status) ? (
                       <span className="badge-accepted">Đã chấp nhận</span>
-                    ) : item.status === 'REJECTED' ? (
+                    ) : ['REJECTED', 'fail'].includes(item.status) ? (
                       <span className="badge-rejected">Đã từ chối</span>
                     ) : (
                       <div className="action-btn-group">

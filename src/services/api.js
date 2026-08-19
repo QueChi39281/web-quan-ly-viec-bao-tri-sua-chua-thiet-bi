@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // 1. Cấu hình Axios Instance gốc trỏ tới Gateway
 const API = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '',
+  baseURL: import.meta.env.VITE_API_URL || '/',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -40,7 +40,10 @@ const normalizeResponseData = (payload, fallback = []) => {
   if (Array.isArray(payload)) return payload;
   if (typeof payload === 'object') {
     if (Array.isArray(payload.data)) return payload.data;
-    if (payload.data && typeof payload.data === 'object') return payload.data;
+    if (payload.data && typeof payload.data === 'object') {
+      if (Array.isArray(payload.data.items)) return payload.data.items;
+      return payload.data;
+    }
     if (Array.isArray(payload.items)) return payload.items;
     if (payload.items && typeof payload.items === 'object') return payload.items;
     return payload;
