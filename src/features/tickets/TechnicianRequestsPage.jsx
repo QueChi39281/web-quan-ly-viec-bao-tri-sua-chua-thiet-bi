@@ -6,7 +6,7 @@ import RejectModal from './components/RejectModal';
 import TechnicianRequestsTable from './components/TechnicianRequestsTable';
 import Pagination from './components/Pagination';
 import ExportExcelButton from '../../components/ExportExcelButton';
-import { getCurrentEmployeeId, maintenanceApi } from '../../services/api';
+import { getCurrentEmployeeId, maintenanceApi, notificationApi } from '../../services/api';
 import { REQUEST_TYPES } from '../../constants/technicianRequests';
 import './TechnicianRequestsPage.css';
 
@@ -39,14 +39,17 @@ export default function TechnicianRequestsPage() {
         ? response
         : Array.isArray(response?.data)
           ? response.data
-          : Array.isArray(response?.data?.data)
-            ? response.data.data
-            : [];
+          : Array.isArray(response?.data?.items)
+            ? response.data.items
+            : Array.isArray(response?.items)
+              ? response.items
+              : [];
 
       // Mapped dữ liệu chuẩn hóa cho UI
       const mappedRequests = rawData.map((request) => ({
         id: request.id || request._id || request.request_id,
         type: request.request_type || request.type || 'MAINTENANCE_REQUEST',
+        employeeId: request.employee_id || request.created_by_employee_id || request.employee?.id || request.employee?.employee_id,
         employeeName: request.employee_name || request.created_by_employee_name || request.created_by_employee_id || 'N/A',
         deviceCode: request.device_code || request.device_id || (request.plan_id ? `PLAN-${request.plan_id}` : 'N/A'),
         content: request.reason || request.content || request.description || '',
@@ -171,6 +174,15 @@ export default function TechnicianRequestsPage() {
           status: 'success'
         });
 
+        if (ticket.employeeId) {
+          await notificationApi.notifyRequestDecision({
+            employeeId: ticket.employeeId,
+            requestId: ticket.id,
+            deviceCode: ticket.deviceCode,
+            decision: 'approved'
+          }).catch((error) => console.warn('Không thể gửi thông báo duyệt yêu cầu:', error));
+        }
+
         // Cập nhật state local
         setRequests(prev => prev.map(item => item.id === ticket.id ? { ...item, status: 'success' } : item));
 
@@ -187,7 +199,7 @@ export default function TechnicianRequestsPage() {
         }
 
         // 2. Điều hướng sang Trang Lập kế hoạch bảo trì/sửa chữa
-        navigate('/maintenance-plan', {
+        navigate('/admin/maintenance-plans', {
           state: {
             fromApproval: true,
             requestData: {
@@ -222,6 +234,16 @@ export default function TechnicianRequestsPage() {
         status: 'fail',
         reason: reason || 'Từ chối bởi quản lý'
       });
+
+      if (ticket.employeeId) {
+        await notificationApi.notifyRequestDecision({
+          employeeId: ticket.employeeId,
+          requestId: ticket.id,
+          deviceCode: ticket.deviceCode,
+          decision: 'rejected',
+          reason
+        }).catch((error) => console.warn('Không thể gửi thông báo từ chối yêu cầu:', error));
+      }
 
       // Cập nhật state local
       setRequests(prev => prev.map(item => item.id === ticket.id ? { ...item, status: 'fail', rejectReason: reason } : item));

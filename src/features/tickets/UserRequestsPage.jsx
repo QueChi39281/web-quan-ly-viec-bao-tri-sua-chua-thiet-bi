@@ -5,7 +5,7 @@ import ManagerSidebar from '../../components/ManagerSidebar';
 import RejectModal from './components/RejectModal';
 import Pagination from './components/Pagination';
 import ExportExcelButton from '../../components/ExportExcelButton';
-import { getCurrentEmployeeId, maintenanceApi } from '../../services/api';
+import { getCurrentEmployeeId, maintenanceApi, notificationApi } from '../../services/api';
 import { USER_REQUEST_TYPES } from '../../constants/userRequests';
 import './UserRequestsPage.css';
 
@@ -39,18 +39,21 @@ export default function UserRequestsPage() {
     try {
       setLoading(true);
       setLoadError('');
-      const response = await maintenanceApi.getRepairs({ status: 'pending', limit: 100 });
+      const response = await maintenanceApi.getRepairs({ limit: 100 });
       const repairs = Array.isArray(response)
         ? response
         : Array.isArray(response?.data)
           ? response.data
-          : Array.isArray(response?.data?.data)
-            ? response.data.data
-            : [];
+          : Array.isArray(response?.data?.items)
+            ? response.data.items
+            : Array.isArray(response?.items)
+              ? response.items
+              : [];
             
       setRequests(repairs.map((repair) => ({
         id: repair.id || repair._id,
         type: 'REPORT_BROKEN',
+        employeeId: repair.employee_id || repair.created_by_employee_id || repair.employee?.id || repair.employee?.employee_id,
         priority: String(repair.priority || 'normal').toUpperCase(),
         deviceCode: repair.device_code || repair.deviceCode || (repair.device_id ? `DEV-${repair.device_id}` : 'N/A'),
         employeeName: repair.employee_name || repair.created_by_employee_name || repair.created_by_employee_id || 'N/A',
@@ -209,6 +212,15 @@ export default function UserRequestsPage() {
           status: 'success'
         });
 
+        if (ticket.employeeId) {
+          await notificationApi.notifyRequestDecision({
+            employeeId: ticket.employeeId,
+            requestId: ticket.id,
+            deviceCode: ticket.deviceCode,
+            decision: 'approved'
+          }).catch((error) => console.warn('Không thể gửi thông báo duyệt yêu cầu:', error));
+        }
+
         // Cập nhật lại state local
         setRequests(prev => prev.map(item => item.id === ticket.id ? { ...item, status: 'success' } : item));
 
@@ -225,7 +237,7 @@ export default function UserRequestsPage() {
         }
 
         // 2. Điều hướng sang Trang Lập kế hoạch bảo trì/sửa chữa
-        navigate('/maintenance-plan', {
+        navigate('/admin/maintenance-plans', {
           state: {
             fromApproval: true,
             requestData: {
@@ -259,6 +271,16 @@ export default function UserRequestsPage() {
         status: 'fail',
         reason: reason || 'Từ chối bởi quản lý'
       });
+
+      if (ticket.employeeId) {
+        await notificationApi.notifyRequestDecision({
+          employeeId: ticket.employeeId,
+          requestId: ticket.id,
+          deviceCode: ticket.deviceCode,
+          decision: 'rejected',
+          reason
+        }).catch((error) => console.warn('Không thể gửi thông báo từ chối yêu cầu:', error));
+      }
 
       setRequests(prev => prev.map(item => item.id === ticket.id ? { ...item, status: 'fail', rejectReason: reason } : item));
       setIsRejectOpen(false);

@@ -57,7 +57,15 @@ export default function AcceptancePage() {
     const loadAcceptanceReports = async () => {
       try {
         const response = await maintenanceApi.getAcceptanceReports({ status: 'pending', limit: 100 });
-        const reports = Array.isArray(response) ? response : response?.data || [];
+        const reports = Array.isArray(response)
+          ? response
+          : Array.isArray(response?.data)
+            ? response.data
+            : Array.isArray(response?.data?.items)
+              ? response.data.items
+              : Array.isArray(response?.items)
+                ? response.items
+                : [];
         setRequests(reports.map((report) => ({
           id: report.id || report._id,
           deviceCode: report.device_id ? `DEV-${report.device_id}` : 'N/A',

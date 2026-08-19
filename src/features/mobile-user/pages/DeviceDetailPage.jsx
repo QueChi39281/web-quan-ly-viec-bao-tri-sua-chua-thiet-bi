@@ -6,7 +6,7 @@ import PartRequestModal from '../components/PartRequestModal';
 import PartReturnModal from '../components/PartReturnModal';
 import WarrantyRequestModal from '../components/WarrantyRequestModal';
 import DamageReportModal from '../components/DamageReportModal';
-import { deviceApi, getCurrentEmployeeId, inventoryApi, maintenanceApi } from '../../../services/api';
+import { aiApi, deviceApi, getCurrentEmployeeId, inventoryApi, maintenanceApi } from '../../../services/api';
 import './DeviceDetailPage.css';
 
 // Thêm Icon AI (Nếu chưa cài lucide-react, bạn có thể thay bằng SVG bên dưới)
@@ -39,6 +39,9 @@ export default function DeviceDetailPage() {
 
   // State cho Chat AI
   const [aiInput, setAiInput] = useState('');
+  const [conversationId, setConversationId] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState('');
   const [chatMessages, setChatMessages] = useState([
     { sender: 'ai', text: 'Xin chào! Tớ là Trợ lý AI Kỹ thuật (*v*)' },
     { sender: 'ai', text: 'Hãy chọn yêu cầu hoặc mô tả sự cố bạn đang gặp phải nhé!' }
@@ -92,6 +95,34 @@ export default function DeviceDetailPage() {
 
     loadDevice();
   }, [deviceId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadConversation = async () => {
+      try {
+        const conversations = await aiApi.getConversations();
+        const latestConversation = Array.isArray(conversations) ? conversations[0] : null;
+        if (!latestConversation?.id || cancelled) return;
+
+        const messages = await aiApi.getMessages(latestConversation.id);
+        if (cancelled) return;
+
+        setConversationId(latestConversation.id);
+        if (Array.isArray(messages) && messages.length > 0) {
+          setChatMessages(messages.map((message) => ({
+            sender: message.role === 'user' ? 'user' : 'ai',
+            text: message.content || ''
+          })));
+        }
+      } catch (error) {
+        if (!cancelled) console.error('Không thể tải hội thoại AI:', error);
+      }
+    };
+
+    loadConversation();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     const loadAvailableParts = async () => {
@@ -255,23 +286,38 @@ export default function DeviceDetailPage() {
   };
 
   // Hàm gửi tin nhắn Chat AI
-  const handleSendAiMessage = (e) => {
+  const handleSendAiMessage = async (e) => {
     e.preventDefault();
-    if (!aiInput.trim()) return;
+    const userQuery = aiInput.trim();
+    if (!userQuery || aiLoading) return;
 
-    // Thêm tin nhắn của Kỹ thuật viên
-    const newMessages = [...chatMessages, { sender: 'user', text: aiInput }];
-    setChatMessages(newMessages);
-    const userQuery = aiInput;
+    setChatMessages((previous) => [...previous, { sender: 'user', text: userQuery }]);
     setAiInput('');
+    setAiError('');
+    setAiLoading(true);
 
-    // Phản hồi giả lập từ AI
-    setTimeout(() => {
-      setChatMessages(prev => [
-        ...prev,
-        { sender: 'ai', text: `AI đang phân tích sự cố: "${userQuery}". Khuyên bạn nên kiểm tra van một chiều và thay lọc gió!` }
-      ]);
-    }, 600);
+    try {
+      let activeConversationId = conversationId;
+      if (!activeConversationId) {
+        const created = await aiApi.createConversation({
+          title: `Hỗ trợ thiết bị ${deviceData.deviceCode || deviceId}`
+        });
+        activeConversationId = created?.id || created?.data?.id;
+        if (!activeConversationId) throw new Error('Không tạo được hội thoại AI.');
+        setConversationId(activeConversationId);
+      }
+
+      const response = await aiApi.sendMessage(activeConversationId, { content: userQuery });
+      const assistantMessage = response?.data?.assistantMessage || response?.assistantMessage;
+      if (assistantMessage?.content) {
+        setChatMessages((previous) => [...previous, { sender: 'ai', text: assistantMessage.content }]);
+      }
+    } catch (error) {
+      console.error('Không thể gửi tin nhắn AI:', error);
+      setAiError(error?.message || 'Không thể kết nối trợ lý AI.');
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   return (
@@ -331,7 +377,10 @@ export default function DeviceDetailPage() {
               {msg.text}
             </div>
           ))}
+          {aiLoading && <div className="chat-bubble ai-bubble">AI đang phân tích...</div>}
         </div>
+
+        {aiError && <div className="ai-error-message">{aiError}</div>}
 
         {/* Khung Nhập Khung Chat AI */}
         <form className="ai-chat-input-row" onSubmit={handleSendAiMessage}>

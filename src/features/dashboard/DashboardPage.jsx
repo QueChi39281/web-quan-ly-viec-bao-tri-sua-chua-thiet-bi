@@ -8,19 +8,45 @@ import ManagerSidebar from '../../components/ManagerSidebar';
 import { maintenanceApi, reportApi } from '../../services/api';
 import './DashboardPage.css';
 
-const defaultDashboard = {
-  totalDevices: 0,
-  pendingMaintenance: 0,
-  completed: 0,
-  issues: 0,
+const mockDashboard = {
+  totalDevices: 128,
+  pendingMaintenance: 17,
+  completed: 86,
+  issues: 9,
   charts: {
-    sparePartsCostData: [],
-    fixTimeData: [],
-    failureFrequencyData: [],
-    vendorFailureData: [],
+    sparePartsCostData: [
+      { region: 'T1', Q1: 12, Q2: 18, Q3: 10, Q4: 15 },
+      { region: 'T2', Q1: 16, Q2: 11, Q3: 19, Q4: 13 },
+      { region: 'T3', Q1: 9, Q2: 15, Q3: 12, Q4: 17 },
+      { region: 'T4', Q1: 14, Q2: 17, Q3: 15, Q4: 20 },
+    ],
+    fixTimeData: [
+      { region: 'Laptop', Q1: 4, Q2: 5, Q3: 3, Q4: 4 },
+      { region: 'May in', Q1: 6, Q2: 4, Q3: 5, Q4: 3 },
+      { region: 'Mang', Q1: 3, Q2: 4, Q3: 2, Q4: 3 },
+      { region: 'May chu', Q1: 8, Q2: 7, Q3: 6, Q4: 5 },
+    ],
+    failureFrequencyData: [
+      { region: 'Laptop', Q1: 8, Q2: 6, Q3: 9, Q4: 5 },
+      { region: 'May in', Q1: 5, Q2: 7, Q3: 4, Q4: 6 },
+      { region: 'Mang', Q1: 3, Q2: 4, Q3: 2, Q4: 3 },
+      { region: 'May chu', Q1: 2, Q2: 3, Q3: 2, Q4: 1 },
+    ],
+    vendorFailureData: [
+      { region: 'Dell', Q1: 4, Q2: 3, Q3: 5, Q4: 2 },
+      { region: 'HP', Q1: 3, Q2: 5, Q3: 2, Q4: 4 },
+      { region: 'Cisco', Q1: 2, Q2: 3, Q3: 1, Q4: 2 },
+      { region: 'Lenovo', Q1: 5, Q2: 2, Q3: 3, Q4: 4 },
+    ],
   },
-  tasks: [],
+  tasks: [
+    { id: 'mock-1', name: 'Laptop Dell Latitude 5420', deadline: '20/08/2026', isUrgent: true, tagText: 'Khẩn cấp' },
+    { id: 'mock-2', name: 'May in HP LaserJet', deadline: '22/08/2026', isUrgent: false, tagText: 'Dinh ky' },
+    { id: 'mock-3', name: 'He thong mang tang 3', deadline: '25/08/2026', isUrgent: false, tagText: 'Dinh ky' },
+  ],
 };
+
+const defaultDashboard = mockDashboard;
 
 export default function DashboardPage() {
   const [dashboard, setDashboard] = useState(defaultDashboard);
@@ -36,16 +62,19 @@ export default function DashboardPage() {
         const summary = summaryRes?.data || summaryRes || {};
         const requests = Array.isArray(requestsRes?.data) ? requestsRes.data : (Array.isArray(requestsRes) ? requestsRes : []);
 
+        const hasSummaryData = Object.keys(summary).length > 0;
+        const chartData = summary.charts || summary;
+
         setDashboard({
-          totalDevices: Number(summary.totalDevices ?? summary.total_devices ?? 0),
-          pendingMaintenance: Number(summary.pendingMaintenance ?? summary.pending_maintenance ?? 0),
-          completed: Number(summary.completed ?? 0),
-          issues: Number(summary.issues ?? 0),
+          totalDevices: hasSummaryData ? Number(summary.totalDevices ?? summary.total_devices ?? mockDashboard.totalDevices) : mockDashboard.totalDevices,
+          pendingMaintenance: hasSummaryData ? Number(summary.pendingMaintenance ?? summary.pending_maintenance ?? mockDashboard.pendingMaintenance) : mockDashboard.pendingMaintenance,
+          completed: hasSummaryData ? Number(summary.completed ?? mockDashboard.completed) : mockDashboard.completed,
+          issues: hasSummaryData ? Number(summary.issues ?? mockDashboard.issues) : mockDashboard.issues,
           charts: {
-            sparePartsCostData: summary.sparePartsCostData || [],
-            fixTimeData: summary.fixTimeData || [],
-            failureFrequencyData: summary.failureFrequencyData || [],
-            vendorFailureData: summary.vendorFailureData || [],
+            sparePartsCostData: chartData.sparePartsCostData?.length ? chartData.sparePartsCostData : mockDashboard.charts.sparePartsCostData,
+            fixTimeData: chartData.fixTimeData?.length ? chartData.fixTimeData : mockDashboard.charts.fixTimeData,
+            failureFrequencyData: chartData.failureFrequencyData?.length ? chartData.failureFrequencyData : mockDashboard.charts.failureFrequencyData,
+            vendorFailureData: chartData.vendorFailureData?.length ? chartData.vendorFailureData : mockDashboard.charts.vendorFailureData,
           },
           tasks: requests.length ? requests.map((item, idx) => ({
             id: item.id ?? idx + 1,
@@ -53,7 +82,7 @@ export default function DashboardPage() {
             deadline: item.scheduledDate || item.deadline || 'Chưa có thời hạn',
             isUrgent: String(item.priority || '').toUpperCase() === 'HIGH',
             tagText: item.priority || 'Định kỳ',
-          })) : defaultDashboard.tasks,
+          })) : mockDashboard.tasks,
         });
       } catch (error) {
         console.error('Không thể tải dashboard từ API, dùng dữ liệu dự phòng:', error);

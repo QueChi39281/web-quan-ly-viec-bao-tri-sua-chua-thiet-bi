@@ -288,6 +288,17 @@ export const authApi = {
   changePassword: (data) => safeMutationCall(() => API.post('/auth/change-password', data)),
 };
 
+// --- 🤖 AI SERVICE ---
+export const aiApi = {
+  health: () => safeObjectCall(() => API.get('/ai/health')),
+  getConversations: () => safeListCall(() => API.get('/ai/conversations')),
+  getConversationById: (id) => safeObjectCall(() => API.get(`/ai/conversations/${id}`)),
+  createConversation: (data) => safeObjectCall(() => API.post('/ai/conversations', data)),
+  deleteConversation: (id) => safeMutationCall(() => API.delete(`/ai/conversations/${id}`)),
+  getMessages: (conversationId) => safeListCall(() => API.get(`/ai/conversations/${conversationId}/messages`)),
+  sendMessage: (conversationId, data) => API.post(`/ai/conversations/${conversationId}/messages`, data),
+};
+
 // --- 👤 USER SERVICE ---
 export const userApi = {
   getHealth: () => safeObjectCall(() => API.get('/users/health')),
@@ -362,10 +373,10 @@ export const maintenanceApi = {
   getDamageReportById: (id) => safeObjectCall(() => API.get(`/maintenances/damage-reports/${id}`)),
 
   // --- MAINTENANCE REQUESTS ---
-  getMaintenanceRequests: (params) => safeListCall(() => API.get('/maintenances/maintenance-requests', { params })),
+  getMaintenanceRequests: (params) => safeListCall(() => API.get('/maintenances/repairs', { params })),
   createMaintenanceRequest: (data) => safeMutationCall(() => API.post('/maintenances/maintenance-requests', data)),
   getMaintenanceRequestById: (id) => safeObjectCall(() => API.get(`/maintenances/maintenance-requests/${id}`)),
-  approveMaintenanceRequest: (id, data) => safeMutationCall(() => API.put(`/maintenances/maintenance-requests/${id}/approve`, data)),
+  approveMaintenanceRequest: (id, data) => safeMutationCall(() => API.put(`/maintenances/repairs/${id}/approve`, data)),
 
   // --- ACCEPTANCE REPORTS ---
   getAcceptanceReports: (params) => safeListCall(() => API.get('/maintenances/acceptance-reports', { params })),
@@ -447,6 +458,25 @@ export const notificationApi = {
 
   createNotification: (data) =>
     safeMutationCall(() => API.post('/notifications', data)),
+
+  notifyRequestDecision: ({ employeeId, requestId, deviceCode, decision, reason }) => {
+    const isApproved = decision === 'approved';
+    const normalizedEmployeeId = employeeId ? Number(employeeId) || employeeId : '';
+    const decisionLabel = isApproved ? 'được chấp nhận' : 'bị từ chối';
+    const content = isApproved
+      ? `Yêu cầu bảo trì/sửa chữa thiết bị ${deviceCode || 'của bạn'} đã được chấp nhận.`
+      : `Yêu cầu bảo trì/sửa chữa thiết bị ${deviceCode || 'của bạn'} đã bị từ chối.${reason ? ` Lý do: ${reason}` : ''}`;
+
+    return notificationApi.createNotification({
+      created_by_employee_id: Number(getCurrentEmployeeId()) || getCurrentEmployeeId() || 1,
+      notification_type: 'maintenance_request',
+      title: `Yêu cầu bảo trì ${decisionLabel}`,
+      content,
+      reference_type: 'MAINTENANCE_REQUEST',
+      reference_id: requestId ? Number(requestId) || requestId : null,
+      employee_ids: normalizedEmployeeId ? [normalizedEmployeeId] : [],
+    });
+  },
 
   getNotifications: (params) =>
     safeListCall(() => API.get('/notifications', { params })),
