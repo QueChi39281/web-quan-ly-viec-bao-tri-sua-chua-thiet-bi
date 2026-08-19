@@ -1,16 +1,36 @@
-# React + Vite
+# 🚀 Hướng Dẫn Cài Đặt & Khởi Chạy Dự Án
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+---
 
-Currently, two official plugins are available:
+## 🛠️ Hướng dẫn cài đặt & Khởi chạy
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+### Bước 1: Cài đặt các thư viện (Dependencies)
+Mở terminal tại thư mục gốc của dự án và chạy lệnh:
 
-## React Compiler
+npm install
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Bước 2: Chạy môi trường phát triển (Development)
+Sau khi cài đặt hoàn tất, chạy lệnh sau để mở ứng dụng ở máy local:
 
-## Expanding the ESLint configuration
+npm run dev
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+> 💡 **Lưu ý:** Địa chỉ mặc định sau khi chạy thường là http://localhost:5173. Bạn giữ phím **Ctrl** (hoặc **Cmd** trên Mac) và click vào đường link trong terminal để mở trên trình duyệt.
+
+---
+
+## 📜 Các lệnh hỗ trợ (Available Scripts)
+
+| Lệnh | Mô tả |
+| :--- | :--- |
+| npm run dev | Khởi chạy ứng dụng ở chế độ phát triển (Local Server) |
+| npm run build | Đóng gói dự án tối ưu để đưa lên môi trường Production |
+| npm run preview | Xem trước (preview) bản đóng gói ở máy local |
+| npm run lint | Kiểm tra cú pháp mã nguồn bằng ESLint |
+
+---
+
+## 🛠️ Công nghệ sử dụng (Tech Stack)
+
+* **Frontend:** React, Vite
+* **Icons:** Lucide React
+* **Styling:** CSS3 / Tailwind CSS
