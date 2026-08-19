@@ -5,7 +5,7 @@ import ApproveModal from './components/ApproveModal';
 import RejectModal from './components/RejectModal';
 import Pagination from '../tickets/components/Pagination';
 import ExportExcelButton from '../../components/ExportExcelButton';
-import { getCurrentEmployeeId, maintenanceApi } from '../../services/api';
+import { deviceApi, getCurrentEmployeeId, maintenanceApi, userApi } from '../../services/api';
 import './AcceptancePage.css';
 
 const PAGE_SIZE = 30;
@@ -56,8 +56,13 @@ export default function AcceptancePage() {
   useEffect(() => {
     const loadAcceptanceReports = async () => {
       try {
-        const response = await maintenanceApi.getAcceptanceReports({ status: 'pending', limit: 100 });
-        const reports = Array.isArray(response)
+        const [reportsResponse, plansResponse, devicesResponse, usersResponse] = await Promise.all([
+          maintenanceApi.getAcceptanceReports({ status: 'pending', limit: 100 }),
+          maintenanceApi.getPlans({ limit: 100 }),
+          deviceApi.getDevices({ limit: 100 }),
+          userApi.getUsers({ limit: 100 })
+        ]);
+        const getList = (response) => Array.isArray(response)
           ? response
           : Array.isArray(response?.data)
             ? response.data
@@ -66,19 +71,39 @@ export default function AcceptancePage() {
               : Array.isArray(response?.items)
                 ? response.items
                 : [];
+        const reports = getList(reportsResponse);
+        const plansById = new Map(getList(plansResponse).map((plan) => [String(plan.id || plan._id), plan]));
+        const devicesById = new Map(getList(devicesResponse).map((device) => [String(device.id || device._id), device]));
+        const usersById = new Map(getList(usersResponse).map((user) => [
+          String(user.employee_id || user.employeeId || user.id || user._id),
+          user
+        ]));
+
         setRequests(reports.map((report) => ({
           id: report.id || report._id,
-          deviceCode: report.device_id ? `DEV-${report.device_id}` : 'N/A',
-          deviceName: report.device_name || 'N/A',
-          employeeName: report.employee_name || report.created_by_employee_id || 'N/A',
+          planId: report.plan_id,
+          deviceCode: (() => {
+            const device = devicesById.get(String(plansById.get(String(report.plan_id))?.device_id || ''));
+            return device?.code || device?.device_code || device?.deviceCode || (report.plan_id ? `PLAN-${report.plan_id}` : '-');
+          })(),
+          deviceName: (() => {
+            const device = devicesById.get(String(plansById.get(String(report.plan_id))?.device_id || ''));
+            return device?.name || device?.device_name || device?.deviceName || device?.model || 'Chưa xác định';
+          })(),
+          employeeName: (() => {
+            const user = usersById.get(String(report.created_by_employee_id));
+            return user?.full_name || user?.fullName || user?.employee_name || user?.name || user?.username || `Nhân viên #${report.created_by_employee_id}`;
+          })(),
           errorDescription: report.description || '',
-          solution: report.solution || '',
-          usedComponents: report.used_components || report.components || '',
+          solution: report.review || '',
+          usedComponents: report.used_components || report.components || 'Không có',
           userConfirmation: Boolean(report.user_confirmation),
           createdAt: report.created_at || report.createdAt || '',
-          estimatedCost: Number(report.estimated_cost || 0),
-          managerName: report.manager_name || report.approved_by_employee_id || 'Chưa duyệt',
-          status: report.status || 'pending'
+          estimatedCost: Number(plansById.get(String(report.plan_id))?.estimated_cost || 0),
+          managerName: report.approved_by_employee_id ? `Nhân viên #${report.approved_by_employee_id}` : 'Chưa duyệt',
+          status: report.status === 'success' ? 'APPROVED' : report.status === 'fail' ? 'REJECTED' : 'PENDING',
+          evaluation: report.status === 'success' ? report.review : '',
+          rejectReason: report.status === 'fail' ? report.review : ''
         })));
       } catch (error) {
         console.error('Không thể tải danh sách biên bản nghiệm thu:', error);
@@ -151,7 +176,8 @@ export default function AcceptancePage() {
     try {
       await maintenanceApi.approveAcceptanceReport(ticket.id, {
         approved_by: Number(getCurrentEmployeeId()) || 1,
-        status: 'success'
+        status: 'success',
+        review: evaluation
       });
       setRequests(prev => prev.map(item =>
         item.id === ticket.id ? { ...item, status: 'success', evaluation } : item
@@ -168,7 +194,8 @@ export default function AcceptancePage() {
     try {
       await maintenanceApi.approveAcceptanceReport(ticket.id, {
         approved_by: Number(getCurrentEmployeeId()) || 1,
-        status: 'fail'
+        status: 'fail',
+        review: reason || 'Từ chối bởi quản lý'
       });
       setRequests(prev => prev.map(item =>
         item.id === ticket.id ? { ...item, status: 'fail', rejectReason: reason } : item
